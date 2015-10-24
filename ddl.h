@@ -36,7 +36,7 @@ void createTable(TreeNode root, const SchemaManager& schema_manager) {
     for(int i = 0; i < sublist.size(); i++) {
         size_t pos = sublist[i].find_first_of(" ");
         field_names.push_back(sublist[i].substr(0, pos));
-        field_types.push_back(sublist[i].substr(pos+1));
+        field_types.push_back(sublist[i].substr(pos+1) == "INT" ? INT : STR20);
     }
 
     //Check whether this would work or not - object declaration inside function?
