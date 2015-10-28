@@ -1,0 +1,26 @@
+Class DatabaseManager:
+  - Schema Manager
+  - Disk
+  - Mem
+  - Create Table:
+    - Extract Relation name
+    - Extract Field names, Field types
+    - Create Schema(fieldname, fieldtype)
+    - schema_manager.createRelation();
+  - Drop Table:
+
+  - Select:
+
+Class Parser :
+  - scan each query
+  - return parsed tree
+
+ParseTree:
+  - 
+
+main :
+  - DatabaseManager
+  - Parser
+  - while (Parser.nextQuery) {
+    DatabaseManager.executeQuery
+  }
