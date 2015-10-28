@@ -56,7 +56,7 @@ int main(){
   Disk disk;
   cout << "The memory contains " << mem.getMemorySize() << " blocks" << endl;
   cout << mem << endl << endl;
-  SchemaManager schema_manager(&mem,&disk);
+  SchemaManager schema_manager(&mem, &disk);
 
   disk.resetDiskIOs();
   disk.resetDiskTimer();

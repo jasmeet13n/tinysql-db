@@ -25,7 +25,7 @@ void createTable(TreeNode root, const SchemaManager& schema_manager) {
     
     //root.children[4] is attribute-type-list
     //root.children[4].children[0].value == the whole attribute-type-list as a string
-    vector<String> sublist; //each entry in sublist is "column-name data-type"
+    vector<string> sublist; //each entry in sublist is "column-name data-type"
     istringstream ss(root.children[4].children[0].value());
     string token;
     while(std::getline(ss, token, ',')) {
