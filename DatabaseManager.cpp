@@ -12,8 +12,8 @@
 using namespace std;
 
 DatabaseManager::DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d) {
-		this->mem = m;
-		this->disk = d;
+	this->mem = m;
+	this->disk = d;
 }
 
 Relation* DatabaseManager::createTable(ParseTree root) {
@@ -27,6 +27,6 @@ Relation* DatabaseManager::createTable(ParseTree root) {
 }
 
 bool DatabaseManager::dropTable(ParseTree root) {
-		string relation_name = root.getRelationName();
-		return schema_manager.deleteRelation(relation_name);
+	string relation_name = root.getRelationName();
+	return schema_manager.deleteRelation(relation_name);
 }
