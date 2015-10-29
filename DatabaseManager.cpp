@@ -17,13 +17,13 @@ DatabaseManager::DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d) 
 }
 
 Relation* DatabaseManager::createTable(ParseTree root) {
-		//Extract Relation Name, Field Names and Field Types
-		string relation_name = root.getRelationName();
-		vector<string> field_names = root.getColumnNames();
-  	vector<enum FIELD_TYPE> root.getDataTypes();
-  	//Create schema and Create Relation
-  	Schema schema(field_names,field_types);
-    return schema_manager.createRelation(relation_name,schema);
+	//Extract Relation Name, Field Names and Field Types
+	string relation_name = root.getRelationName();
+	vector<string> field_names = root.getColumnNames();
+	vector<enum FIELD_TYPE> root.getDataTypes();
+	//Create schema and Create Relation
+	Schema schema(field_names,field_types);
+	return schema_manager.createRelation(relation_name,schema);
 }
 
 bool DatabaseManager::dropTable(ParseTree root) {
