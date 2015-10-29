@@ -8,6 +8,7 @@
 #include "./StorageManager/Schema.h"
 #include "./StorageManager/SchemaManager.h"
 #include "./StorageManager/Tuple.h"
+#include "DatabaseManager.h"
 
 using namespace std;
 
