@@ -1,8 +1,7 @@
 #include <iostream>
 #include <vector>
-
+#include <gtest/gtest.h>
 #include "tokenizer.cc"
-#include "gtest/gtest.h"
 
 using namespace std;
 
@@ -23,7 +22,7 @@ TEST(TokenizerTest, sampletest) {
   EXPECT_EQ("name", ans[7]);
   EXPECT_EQ("STR20", ans[8]);
   EXPECT_EQ(")", ans[9]);
-  
+
   //for (int i = 0; i < ans.size(); ++i) {
   //  cout << ans[i] << endl;
   //}
