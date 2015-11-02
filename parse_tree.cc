@@ -1,4 +1,9 @@
-enum NODE_TYPE {create-table-statement, drop-table-statement}
+#include <string>
+#include <vector>
+
+enum NODE_TYPE {CREATE, DROP};
+
+using namespace std;
 
 class ParseTreeNode {
 private:
