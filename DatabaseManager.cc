@@ -16,8 +16,6 @@
 #include "parser.cc"
 #include "parse_tree.cc"
 
-using namespace std;
-
 class DatabaseManager {
 private:
 	MainMemory* mem;
