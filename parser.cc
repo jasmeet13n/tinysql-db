@@ -26,12 +26,40 @@ private:
     return false;
   }
 
+  static bool isDeleteTableQuery(std::vector<std::string>& tokens) {
+    if (tokens.size() != 3) {
+      return false;
+    }
+    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
+    if (t0 == "DROP") {
+      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
+      if (t1 == "TABLE") {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool isInsertIntoTableQuery(std::vector<std::string>& tokens) {
+    if (tokens.size() < 3) {
+      return false;
+    }
+    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
+    if (t0 == "INSERT") {
+      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
+      if (t1 == "INTO") {
+        return true;
+      }
+    }
+    return false;
+  }
+
   static ParseTreeNode* getAttributeTypeList(
       std::vector<std::string>& tokens, int start_index) {
     std::string att_name = tokens[start_index];
     std::string att_type = tokens[start_index + 1];
 
-    ParseTreeNode* att_type_list = new ParseTreeNode(NODE_TYPE::ATTRIBUTE_TYPE_LIST, "attribute_list");
+    ParseTreeNode* att_type_list = new ParseTreeNode(NODE_TYPE::ATTRIBUTE_TYPE_LIST, "attribute_type_list");
     (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_NAME, att_name));
     (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_DATA_TYPE, att_type));
 
@@ -55,6 +83,17 @@ private:
     return root;
   }
 
+  static ParseTreeNode* getDropTableTree(std::vector<std::string>& tokens) {
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::DROP_TABLE_STATEMENT, "drop_statement");
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::DROP_LITERAL, "DROP"));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_LITERAL, "TABLE"));
+
+    // add relation name child
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, tokens[2]));
+
+    return root;
+  }
+
 public:
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
@@ -66,6 +105,11 @@ public:
       ParseTreeNode* ans = getCreateTableTree(tokens);
       ParseTreeNode::printParseTree(ans);
       return ans;
+    } else if (isDeleteTableQuery(tokens)) {
+      ParseTreeNode* ans = getDropTableTree(tokens);
+      ParseTreeNode::printParseTree(ans);
+      return ans;
+    } else if (isInsertIntoTableQuery(tokens)) {
 
     }
     return nullptr;

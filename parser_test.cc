@@ -27,6 +27,28 @@ TEST(ParserTest, createTableTest) {
   //}
 }
 
+TEST(ParserTest, dropTableTest) {
+  std::string test = "DROP    TABLE test";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("drop table test");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("Drop TAble test");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("Dop test");
+  EXPECT_EQ(nullptr, ans);
+
+  ans = Parser::parseQuery("drops TAble test");
+  EXPECT_EQ(nullptr, ans);
+
+  //for (int i = 0; i < ans.size(); ++i) {
+  //  cout << ans[i] << endl;
+  //}
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
