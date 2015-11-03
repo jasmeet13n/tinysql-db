@@ -21,6 +21,7 @@ TEST(ParserTest, createTableTest) {
 
   ans = Parser::parseQuery("Cresate TAble test (id INT, name STR20)");
   EXPECT_EQ(nullptr, ans);
+  //ASSERT_TRUE("SRT" == "SRT");
   
   //for (int i = 0; i < ans.size(); ++i) {
   //  cout << ans[i] << endl;
@@ -38,10 +39,32 @@ TEST(ParserTest, dropTableTest) {
   ans = Parser::parseQuery("Drop TAble test");
   EXPECT_NE(nullptr, ans);
 
-  ans = Parser::parseQuery("Dop test");
+  ans = Parser::parseQuery("Drop test");
   EXPECT_EQ(nullptr, ans);
 
   ans = Parser::parseQuery("drops TAble test");
+  EXPECT_EQ(nullptr, ans);
+
+  //for (int i = 0; i < ans.size(); ++i) {
+  //  cout << ans[i] << endl;
+  //}
+}
+
+TEST(ParserTest, insertIntoTest) {
+  std::string test = "INSERT    INTO test (id, value, name, text) VALUES ";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("insert into test (id, value, name, text) VALUES ");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("Insert Into test (id, value, name, text) VALUES ");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("INsert test (id, value, name, text) VALUES ");
+  EXPECT_EQ(nullptr, ans);
+
+  ans = Parser::parseQuery("Inseert TAble test (id, value, name, text) VALUES ");
   EXPECT_EQ(nullptr, ans);
 
   //for (int i = 0; i < ans.size(); ++i) {

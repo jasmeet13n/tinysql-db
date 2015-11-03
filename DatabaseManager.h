@@ -9,8 +9,6 @@
 #include "./StorageManager/SchemaManager.h"
 #include "./StorageManager/Tuple.h"
 
-using namespace std;
-
 class DatabaseManager {
 private:
 	MainMemory* mem;

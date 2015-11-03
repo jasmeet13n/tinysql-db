@@ -18,7 +18,14 @@ enum NODE_TYPE {
   TABLE_NAME,
   ATTRIBUTE_TYPE_LIST,
   ATTRIBUTE_NAME,
-  ATTRIBUTE_DATA_TYPE
+  ATTRIBUTE_DATA_TYPE,
+  INSERT_STATEMENT,
+  ATTRIBUTE_LIST,
+  INSERT_LITERAL,
+  INTO_LITERAL,
+  VALUES_LITERAL,
+  INSERT_TUPLES,
+  VALUE_LIST
 };
 
 class ParseTreeNode {
@@ -30,6 +37,12 @@ public:
 
   ParseTreeNode(enum NODE_TYPE t, std::string v) : value(v) {
     type = t;
+  }
+
+  ~ParseTreeNode() {
+    for (int i = 0; i < children.size(); ++i) {
+      delete children[i];
+    }
   }
 
   static void printParseTree(ParseTreeNode* root, int level = 0) {

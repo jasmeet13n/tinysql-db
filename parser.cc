@@ -70,6 +70,39 @@ private:
     return att_type_list;
   }
 
+  static ParseTreeNode* getAttributeList(
+      std::vector<std::string>& tokens, int start_index) {
+    std::string att_name = tokens[start_index];
+
+    ParseTreeNode* att_list = new ParseTreeNode(NODE_TYPE::ATTRIBUTE_LIST, "attribute_list");
+    (att_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_NAME, att_name));
+
+    if (tokens[start_index + 1] == ",") {
+      (att_list->children).push_back(getAttributeList(tokens, start_index + 2));
+    }
+
+    return att_list;
+  }
+
+  static ParseTreeNode* getValueList(
+      std::vector<std::string>& tokens, int start_index) {
+    ParseTreeNode* value_list = new ParseTreeNode(NODE_TYPE::VALUE_LIST, "value_list");
+    return value_list;
+  }
+
+  static ParseTreeNode* getInsertTuples(
+      std::vector<std::string>& tokens, int start_index) {
+    std::string values_literal = boost::to_upper_copy<std::string>(tokens[start_index]);
+    // if not values get select statement
+
+    ParseTreeNode* insert_tuples = new ParseTreeNode(NODE_TYPE::INSERT_TUPLES, "insert_tuples");
+
+    (insert_tuples->children).push_back(new ParseTreeNode(NODE_TYPE::VALUES_LITERAL, "VALUES"));
+    (insert_tuples->children).push_back(getValueList(tokens, start_index + 2));
+
+    return insert_tuples;
+  }
+
   static ParseTreeNode* getCreateTableTree(std::vector<std::string>& tokens) {
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::CREATE_TABLE_STATEMENT, "create_statement");
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::CREATE_LITERAL, "CREATE"));
@@ -94,6 +127,27 @@ private:
     return root;
   }
 
+  static ParseTreeNode* getInsertIntoTableTree(std::vector<std::string>& tokens) {
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::INSERT_STATEMENT, "insert_statement");
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::INSERT_LITERAL, "INSERT"));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::INTO_LITERAL, "INTO"));
+
+    // add relation name child
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, tokens[2]));
+
+    // add attribute list
+    (root->children).push_back(getAttributeList(tokens, 4));
+
+    int values_start = 4;
+    while (tokens[values_start].size() != 1 && tokens[values_start][0] != ')') {
+      values_start++;
+    }
+    values_start++;
+
+    (root->children).push_back(getInsertTuples(tokens, values_start));
+
+    return root;
+  }
 public:
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
@@ -103,18 +157,19 @@ public:
 
     if (isCreateTableQuery(tokens)) {
       ParseTreeNode* ans = getCreateTableTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDeleteTableQuery(tokens)) {
       ParseTreeNode* ans = getDropTableTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isInsertIntoTableQuery(tokens)) {
-
+      ParseTreeNode* ans = getInsertIntoTableTree(tokens);
+      ParseTreeNode::printParseTree(ans);
+      return ans;
     }
     return nullptr;
   }
-
 };
 
 #endif
