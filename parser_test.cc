@@ -8,8 +8,13 @@
 TEST(ParserTest, createTableTest) {
   std::string test = "CREATE    TABLE test( id INT,    name STR20)";
   ParseTreeNode* ans = Parser::parseQuery(test);
+  EXPECT_NE(nullptr, ans);
+
   ans = Parser::parseQuery("create table test (id INT, name STR20)");
+  EXPECT_NE(nullptr, ans);
+
   ans = Parser::parseQuery("Create TAble test (id INT, name STR20)");
+  EXPECT_NE(nullptr, ans);
 
   ans = Parser::parseQuery("Create test (id INT, name STR20)");
   EXPECT_EQ(nullptr, ans);
