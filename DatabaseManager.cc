@@ -23,31 +23,25 @@ private:
 	SchemaManager schema_manager;
 
 public:
-	DatabaseManager(MainMemory* m, Disk* d);
+	DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d) {
+    this->mem = m;
+    this->disk = d;
+  }
 
-	Relation* createTable(ParseTree root);
+  Relation* createTable(ParseTreeNode* root) {
+    //Extract Relation Name, Field Names and Field Types
+    string relation_name = getRelationName(root);
+    vector<string> field_names = getColumnNames(root);
+    vector<enum FIELD_TYPE> getDataTypes(root);
+    //Create schema and Create Relation
+    Schema schema(field_names,field_types);
+    return schema_manager.createRelation(relation_name,schema);
+  }
 
-	bool dropTable(ParseTree root);
+  bool dropTable(ParseTreeNode* root) {
+    string relation_name = getRelationName(root);
+    return schema_manager.deleteRelation(relation_name);
+  }
 };
-
-DatabaseManager::DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d) {
-  this->mem = m;
-  this->disk = d;
-}
-
-Relation* DatabaseManager::createTable(ParseTreeNode* root) {
-  //Extract Relation Name, Field Names and Field Types
-  string relation_name = getRelationName(root);
-  vector<string> field_names = getColumnNames(root);
-  vector<enum FIELD_TYPE> getDataTypes(root);
-  //Create schema and Create Relation
-  Schema schema(field_names,field_types);
-  return schema_manager.createRelation(relation_name,schema);
-}
-
-bool DatabaseManager::dropTable(ParseTree root) {
-  string relation_name = getRelationName(root);
-  return schema_manager.deleteRelation(relation_name);
-}
 
 #endif
