@@ -11,7 +11,6 @@
 #include "./StorageManager/Schema.h"
 #include "./StorageManager/SchemaManager.h"
 #include "./StorageManager/Tuple.h"
-#include "parse_tree.cc"
 #include "utils.cc"
 #include "parser.cc"
 #include "parse_tree.cc"
