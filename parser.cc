@@ -31,14 +31,9 @@ private:
     std::string att_name = tokens[start_index];
     std::string att_type = tokens[start_index + 1];
 
-    ParseTreeNode* att_type_list = new ParseTreeNode(NODE_TYPE::ATTRIBUTE_TYPE_LIST);
-    att_type_list->value = "Attribute List";
-
-    (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_NAME));
-    att_type_list->children[0]->value = att_name;
-
-    (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_DATA_TYPE));
-    att_type_list->children[1]->value = att_type;
+    ParseTreeNode* att_type_list = new ParseTreeNode(NODE_TYPE::ATTRIBUTE_TYPE_LIST, "attribute_list");
+    (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_NAME, att_name));
+    (att_type_list->children).push_back(new ParseTreeNode(NODE_TYPE::ATTRIBUTE_DATA_TYPE, att_type));
 
     if (tokens[start_index + 2] == ",") {
       (att_type_list->children).push_back(getAttributeTypeList(tokens, start_index + 3));
@@ -48,16 +43,12 @@ private:
   }
 
   static ParseTreeNode* getCreateTableTree(std::vector<std::string>& tokens) {
-    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::CREATE_TABLE_STATEMENT);
-    (root->children).push_back(new ParseTreeNode(NODE_TYPE::CREATE_LITERAL));
-    root->children[0]->value = "CREATE";
-
-    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_LITERAL));
-    root->children[1]->value = "TABLE";
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::CREATE_TABLE_STATEMENT, "create_statement");
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::CREATE_LITERAL, "CREATE"));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_LITERAL, "TABLE"));
 
     // add relation name child
-    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME));
-    root->children[2]->value = tokens[2];
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, tokens[2]));
 
     (root->children).push_back(getAttributeTypeList(tokens, 4));
 
@@ -73,8 +64,9 @@ public:
 
     if (isCreateTableQuery(tokens)) {
       ParseTreeNode* ans = getCreateTableTree(tokens);
+      ParseTreeNode::printParseTree(ans);
       return ans;
-      // ParseTreeNode::printParseTree(ans);
+
     }
     return nullptr;
   }

@@ -28,7 +28,7 @@ public:
   std::string value;
   std::vector<ParseTreeNode *> children;
 
-  ParseTreeNode(enum NODE_TYPE t) {
+  ParseTreeNode(enum NODE_TYPE t, std::string v) : value(v) {
     type = t;
   }
 
