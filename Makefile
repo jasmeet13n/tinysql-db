@@ -21,6 +21,8 @@ parser_test.o: parser_test.cc
 parser_test: parser.o parser_test.o
 	$(cc)   -o a.out parser.o parser_test.o -lgtest -lpthread	
 	
+# main
+	
 clean:
 	rm *.o
 	rm a.out

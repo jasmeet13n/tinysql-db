@@ -1,5 +1,5 @@
 #include <iostream>
-#include "DatabaseManager.h"
+#include "DatabaseManager.cc"
 
 int main() {
 	// Initialize the memory, disk, the database manager and the parser
@@ -9,7 +9,9 @@ int main() {
 	while (1) {
 	  std::string query;
 	  getline(std::cin, query);
-	  ParseTreeNode* ans = Parser::parseQuery(query);
+	  if (query == "exit") {
+	    break;
+	  }
 	  db_manager.processQuery(query);
 	}
 	return 0;

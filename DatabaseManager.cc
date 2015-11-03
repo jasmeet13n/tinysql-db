@@ -13,6 +13,8 @@
 #include "./StorageManager/Tuple.h"
 #include "parse_tree.cc"
 #include "utils.cc"
+#include "parser.cc"
+#include "parse_tree.cc"
 
 using namespace std;
 
@@ -41,6 +43,20 @@ public:
   bool dropTable(ParseTreeNode* root) {
     string relation_name = getRelationName(root);
     return schema_manager.deleteRelation(relation_name);
+  }
+
+  bool processQuery(std::string& query) {
+    ParseTreeNode* root = Parser::parseQuery(query);
+    if (root == nullptr) {
+      return false;
+    }
+
+    if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
+      //
+    } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
+      //
+    }
+    return false;
   }
 };
 
