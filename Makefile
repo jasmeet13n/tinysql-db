@@ -21,12 +21,18 @@ parser_test.o: parser_test.cc
 parser_test: parser.o parser_test.o
 	$(cc)   -o a.out parser.o parser_test.o -lgtest -lpthread	
 	
+StorageManager.o: StorageManager/Block.h StorageManager/Disk.h StorageManager/Field.h StorageManager/MainMemory.h StorageManager/Relation.h StorageManager/Schema.h StorageManager/SchemaManager.h StorageManager/Tuple.h StorageManager/Config.h
+	$(cc) -c StorageManager/StorageManager.cpp
+
+DatabaseManager.o: DatabaseManager.cc
+	$(cc) -c DatabaseManager.cc
+
 # main
 main.o: main.cc
 	$(cc) -c main.cc
 
-main: main.o
-	$(cc) -o a.out main.o -lgtest -lpthread
+main: main.o StorageManager.o DatabaseManager.o
+	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o -lgtest -lpthread
 	
 clean:
 	rm *.o
