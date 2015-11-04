@@ -33,11 +33,19 @@ public:
     vector<string> field_names = getColumnNames(root);
     vector<enum FIELD_TYPE> getDataTypes(root);
     //Create schema and Create Relation
-    Schema schema(field_names,field_types);
+    Schema schema(field_names, field_types);
     return schema_manager.createRelation(relation_name,schema);
   }
 
-  bool dropTable(ParseTreeNode* root) {
+  bool processCreateTableStatement(ParseTreeNode* root) {
+    Relation* newRelation = createTable(root);
+    if (newRelation == nullptr) {
+      return false;
+    }
+    return true;
+  }
+
+  bool processDropTableStatement(ParseTreeNode* root) {
     string relation_name = getRelationName(root);
     return schema_manager.deleteRelation(relation_name);
   }
@@ -49,9 +57,9 @@ public:
     }
 
     if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
-      //
+      return processCreateTableStatement(root);
     } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
-      //
+      return processDropTableStatement(root);
     }
     return false;
   }
