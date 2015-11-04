@@ -4,10 +4,10 @@
 #include <string>
 #include <vector>
 
-enum DATA_TYPE {
-  INT,
-  SRT20
-};
+// enum DATA_TYPE {
+//   INT,
+//   SRT20
+// };
 
 enum NODE_TYPE {
   CREATE_TABLE_STATEMENT,

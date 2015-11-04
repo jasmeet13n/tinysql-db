@@ -4,6 +4,7 @@
 
 #include "parser.cc"
 #include "parse_tree.cc"
+#include "utils.cc"
 
 TEST(ParserTest, createTableTest) {
   std::string test = "CREATE    TABLE test( id INT,    name STR20)";
@@ -70,6 +71,29 @@ TEST(ParserTest, insertIntoTest) {
   //for (int i = 0; i < ans.size(); ++i) {
   //  cout << ans[i] << endl;
   //}
+}
+
+TEST(UtilsTest, columnNames) {
+  std::string test = "CREATE    TABLE test( id INT,    name STR20)";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  std::vector<std::string> cols = Utils::getColumnNames(ans);
+  EXPECT_EQ("id", cols[0]);
+  EXPECT_EQ("name", cols[1]);
+}
+
+TEST(UtilsTest, dataTypes) {
+  std::string test = "CREATE    TABLE test( id INT,    name STR20)";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  std::vector<enum FIELD_TYPE> cols = Utils::getDataTypes(ans);
+  EXPECT_EQ(INT, cols[0]);
+  EXPECT_EQ(STR20, cols[1]);
+}
+
+TEST(UtilsTest, relationName) {
+  std::string test = "CREATE    TABLE test( id INT,    name STR20)";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  std::string relationName = Utils::getRelationName(ans);
+  EXPECT_EQ("test", relationName);
 }
 
 int main(int argc, char **argv) {
