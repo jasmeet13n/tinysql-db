@@ -12,7 +12,7 @@ int main() {
 	  if (query == "exit") {
 	    break;
 	  }
-	  db_manager.processQuery(query);
+	  std::cout << (db_manager.processQuery(query) ? "SUCCESS" : "FAILURE") << std::endl;
 	}
 	return 0;
 }
