@@ -5,7 +5,7 @@
 
 using namespace std;
 
-TEST(TokenizerTest, sampletest) {
+TEST(TokenizerTest, createTableTest) {
   string test = "CREATE    TABLE test( id INT,    name STR20)";
   vector<string> ans;
 
@@ -26,6 +26,19 @@ TEST(TokenizerTest, sampletest) {
   //for (int i = 0; i < ans.size(); ++i) {
   //  cout << ans[i] << endl;
   //}
+}
+
+TEST(TokenizerTest, insertIntoTest) {
+  string test = "INSERT INTO test (id, text) VALUES (20, \"some random text\")";
+  vector<string> ans;
+
+  ans = Tokenizer::getTokens(test);
+  EXPECT_EQ(14, ans.size());
+
+  cout << test << endl;
+  for (int i = 0; i < ans.size(); ++i) {
+    cout << ans[i] << endl;
+  }
 }
 
 int main(int argc, char **argv) {
