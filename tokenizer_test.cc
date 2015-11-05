@@ -35,10 +35,25 @@ TEST(TokenizerTest, insertIntoTest) {
   ans = Tokenizer::getTokens(test);
   EXPECT_EQ(14, ans.size());
 
-  cout << test << endl;
-  for (int i = 0; i < ans.size(); ++i) {
-    cout << ans[i] << endl;
-  }
+  EXPECT_EQ("INSERT", ans[0]);
+  EXPECT_EQ("INTO", ans[1]);
+  EXPECT_EQ("test", ans[2]);
+  EXPECT_EQ("(", ans[3]);
+  EXPECT_EQ("id", ans[4]);
+  EXPECT_EQ(",", ans[5]);
+  EXPECT_EQ("text", ans[6]);
+  EXPECT_EQ(")", ans[7]);
+  EXPECT_EQ("VALUES", ans[8]);
+  EXPECT_EQ("(", ans[9]);
+  EXPECT_EQ("20", ans[10]);
+  EXPECT_EQ(",", ans[11]);
+  EXPECT_EQ("some random text", ans[12]);
+  EXPECT_EQ(")", ans[13]);
+
+  //cout << test << endl;
+  //for (int i = 0; i < ans.size(); ++i) {
+  //  cout << ans[i] << endl;
+  //}
 }
 
 int main(int argc, char **argv) {
