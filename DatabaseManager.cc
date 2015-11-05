@@ -34,7 +34,7 @@ public:
     std::vector<enum FIELD_TYPE> data_types;
     Utils::getAttributeTypeList(root, column_names, data_types);
     //Create schema and Create Relation
-    Schema schema(field_names, field_types);
+    Schema schema(column_names, data_types);
     return schema_manager.createRelation(relation_name,schema);
   }
 
