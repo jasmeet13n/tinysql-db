@@ -29,9 +29,10 @@ public:
 
   Relation* createTable(ParseTreeNode* root) {
     //Extract Relation Name, Field Names and Field Types
-    string relation_name = Utils::getRelationName(root);
-    vector<string> field_names = Utils::getColumnNames(root);
-    vector<enum FIELD_TYPE> field_types = Utils::getDataTypes(root);
+    string relation_name = Utils::getTableName(root);
+    std::vector<std::string> column_names;
+    std::vector<enum FIELD_TYPE> data_types;
+    Utils::getAttributeTypeList(root, column_names, data_types);
     //Create schema and Create Relation
     Schema schema(field_names, field_types);
     return schema_manager.createRelation(relation_name,schema);
@@ -46,7 +47,7 @@ public:
   }
 
   bool processDropTableStatement(ParseTreeNode* root) {
-    string relation_name = Utils::getRelationName(root);
+    string relation_name = Utils::getTableName(root);
     return schema_manager.deleteRelation(relation_name);
   }
 

@@ -73,26 +73,22 @@ TEST(ParserTest, insertIntoTest) {
   //}
 }
 
-TEST(UtilsTest, columnNames) {
+TEST(UtilsTest, AttributeTypeList) {
   std::string test = "CREATE    TABLE test( id INT,    name STR20)";
   ParseTreeNode* ans = Parser::parseQuery(test);
-  std::vector<std::string> cols = Utils::getColumnNames(ans);
+  std::vector<std::string> cols;
+  std::vector<enum FIELD_TYPE> dt;
+  Utils::getAttributeTypeList(ans, cols, dt);
   EXPECT_EQ("id", cols[0]);
   EXPECT_EQ("name", cols[1]);
-}
-
-TEST(UtilsTest, dataTypes) {
-  std::string test = "CREATE    TABLE test( id INT,    name STR20)";
-  ParseTreeNode* ans = Parser::parseQuery(test);
-  std::vector<enum FIELD_TYPE> cols = Utils::getDataTypes(ans);
-  EXPECT_EQ(INT, cols[0]);
-  EXPECT_EQ(STR20, cols[1]);
+  EXPECT_EQ(INT, dt[0]);
+  EXPECT_EQ(STR20, dt[1]);
 }
 
 TEST(UtilsTest, relationName) {
   std::string test = "CREATE    TABLE test( id INT,    name STR20)";
   ParseTreeNode* ans = Parser::parseQuery(test);
-  std::string relationName = Utils::getRelationName(ans);
+  std::string relationName = Utils::getTableName(ans);
   EXPECT_EQ("test", relationName);
 }
 
