@@ -54,6 +54,17 @@ private:
     return false;
   }
 
+  static bool isSelectQuery(std::vector<std::string>& tokens, int start_index = 0) {
+    if (tokens.size() < 3) {
+      return false;
+    }
+    std::string t0 = boost::to_upper_copy<std::string>(tokens[start_index + 0]);
+    if (t0 == "INSERT") {
+      return true;
+    }
+    return false;
+  }
+
   static ParseTreeNode* getAttributeTypeList(
       std::vector<std::string>& tokens, int start_index) {
     std::string att_name = tokens[start_index];
@@ -157,10 +168,17 @@ private:
 
     return root;
   }
+
+  static ParseTreeNode* getSelectTree(std::vector<std::string>& tokens, int start_index = 0) {
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "select_statement");
+
+  }
 public:
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
     tokens = Tokenizer::getTokens(query);
+    // make first token toUpper
+
     if (tokens.size() < 3)
       return nullptr;
 
@@ -175,6 +193,10 @@ public:
     } else if (isInsertIntoTableQuery(tokens)) {
       ParseTreeNode* ans = getInsertIntoTableTree(tokens);
       //ParseTreeNode::printParseTree(ans);
+      return ans;
+    } else if (isSelectQuery(tokens)) {
+      ParseTreeNode* ans = getSelectTree(tokens);
+      ParseTreeNode::printParseTree(ans);
       return ans;
     }
     return nullptr;

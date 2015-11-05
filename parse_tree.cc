@@ -26,7 +26,8 @@ enum NODE_TYPE {
   VALUES_LITERAL,
   INSERT_TUPLES,
   VALUE_LIST,
-  VALUE
+  VALUE,
+  SELECT_STATEMENT
 };
 
 class ParseTreeNode {
