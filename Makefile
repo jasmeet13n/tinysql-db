@@ -9,8 +9,7 @@ tokenizer_test.o: tokenizer_test.cc
 
 tokenizer_test: tokenizer.o tokenizer_test.o
 	$(cc) -o a.out tokenizer.o tokenizer_test.o -lgtest -lpthread
-	
-	
+		
 # Parser	
 parser.o: parser.cc
 	$(cc) -c parser.cc

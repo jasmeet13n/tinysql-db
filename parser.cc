@@ -87,6 +87,14 @@ private:
   static ParseTreeNode* getValueList(
       std::vector<std::string>& tokens, int start_index) {
     ParseTreeNode* value_list = new ParseTreeNode(NODE_TYPE::VALUE_LIST, "value_list");
+
+    std::string value = tokens[start_index];
+    (value_list->children).push_back(new ParseTreeNode(NODE_TYPE::VALUE, value));
+
+    if (tokens[start_index + 1] == ",") {
+      (value_list->children).push_back(getValueList(tokens, start_index + 2));
+    }
+
     return value_list;
   }
 
@@ -139,11 +147,12 @@ private:
     (root->children).push_back(getAttributeList(tokens, 4));
 
     int values_start = 4;
-    while (tokens[values_start].size() != 1 && tokens[values_start][0] != ')') {
+    while (tokens[values_start] != ")") {
       values_start++;
     }
     values_start++;
 
+    //std::cout << "values start at: " << values_start << " token: " << tokens[values_start] << std::endl;
     (root->children).push_back(getInsertTuples(tokens, values_start));
 
     return root;
@@ -165,7 +174,7 @@ public:
       return ans;
     } else if (isInsertIntoTableQuery(tokens)) {
       ParseTreeNode* ans = getInsertIntoTableTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     }
     return nullptr;

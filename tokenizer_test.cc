@@ -29,7 +29,7 @@ TEST(TokenizerTest, createTableTest) {
 }
 
 TEST(TokenizerTest, insertIntoTest) {
-  string test = "INSERT INTO test (id, text) VALUES (20, \"some random text\")";
+  string test = "INSERT INTO test (id, text) VALUES (\"20\", \"some random text\")";
   vector<string> ans;
 
   ans = Tokenizer::getTokens(test);

@@ -16,6 +16,9 @@ public:
         quotes = true;
         last = i + 1;
       } else if ((quotes && text[i] == '"') || (!quotes && (text[i] == ',' || text[i] == '(' || text[i] == ')' || text[i] == ' '))) {
+        if (quotes) {
+          quotes = false;
+        }
         if (last < i) {
           ans.push_back(text.substr(last, i - last));
         }
