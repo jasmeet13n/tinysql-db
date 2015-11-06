@@ -59,7 +59,7 @@ private:
       return false;
     }
     std::string t0 = boost::to_upper_copy<std::string>(tokens[start_index + 0]);
-    if (t0 == "INSERT") {
+    if (t0 == "SELECT") {
       return true;
     }
     return false;
@@ -122,6 +122,37 @@ private:
     return insert_tuples;
   }
 
+  static ParseTreeNode* getSelectSublist(std::vector<std::string>& tokens, int start_index) {
+
+    std::string value = tokens[start_index];
+    if(value == "*") {
+      ParseTreeNode* sub_list = new ParseTreeNode(NODE_TYPE::ASTERISK, value);
+      return sub_list;
+    }
+
+    ParseTreeNode* sub_list = new ParseTreeNode(NODE_TYPE::SELECT_SUBLIST, "select_sublist");
+    (sub_list->children).push_back(new ParseTreeNode(NODE_TYPE::COLUMN_NAME, value));
+
+    if (tokens[start_index + 1] == ",") {
+      (sub_list->children).push_back(getSelectSublist(tokens, start_index + 2));
+    }
+
+    return sub_list;
+  }
+
+  static ParseTreeNode* getTableList(std::vector<std::string>& tokens, int start_index) {
+    ParseTreeNode* table_list = new ParseTreeNode(NODE_TYPE::TABLE_LIST, "table_list");
+
+    std::string value = tokens[start_index];
+    (table_list->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, value));
+
+    if (tokens[start_index + 1] == ",") {
+      (table_list->children).push_back(getTableList(tokens, start_index + 2));
+    }
+
+    return table_list;
+  }
+
   static ParseTreeNode* getCreateTableTree(std::vector<std::string>& tokens) {
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::CREATE_TABLE_STATEMENT, "create_statement");
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::CREATE_LITERAL, "CREATE"));
@@ -170,9 +201,61 @@ private:
   }
 
   static ParseTreeNode* getSelectTree(std::vector<std::string>& tokens, int start_index = 0) {
+    int distinct_index = 0;
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "select_statement");
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "SELECT"));
+    if(tokens[1] == "DISTINCT") {
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::DISTINCT_LITERAL, "DISTINCT"));
+      distinct_index++;
+    }
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_LIST, "select_list"));
+    ((root->children[root->children.size() - 1])->children).push_back(getSelectSublist(tokens, 1 + distinct_index));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::FROM_LITERAL, "FROM"));
+    int table_list_start = 0;
+    while (tokens[table_list_start] != "FROM") {
+      table_list_start++;
+    }
+    table_list_start++;
+    (root->children).push_back(getTableList(tokens, table_list_start));
+    int where_start = table_list_start;
+    int order_start = table_list_start;
+    bool where_present = false;
+    bool order_by_present = false;
+    while (where_start < tokens.size()) {
+      if(tokens[where_start] == "WHERE") {
+        where_present = true;
+        break;
+      }
+      where_start++;
+    }
 
+    while (order_start < tokens.size()) {
+      if(tokens[order_start] == "ORDER") {
+        order_by_present = true;
+        break;
+      }
+    }
+
+    if(where_present) {
+      where_start++;
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::WHERE_LITERAL, "WHERE"));
+      //make where_clause
+      std::string where_clause = "";
+      while(where_start < tokens.size() && tokens[where_start] != "ORDER") {
+        where_clause += tokens[where_start++];
+      }
+      ((root->children[root->children.size() - 1])->children).push_back(
+        new ParseTreeNode(NODE_TYPE::WHERE_CLAUSE, where_clause));
+    }
+
+    if(order_by_present) {
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::ORDER_LITERAL, "ORDER"));
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::BY_LITERAL, "BY"));
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::COLUMN_NAME, tokens[tokens.size() - 1]));
+    }
+    return root;
   }
+
 public:
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
@@ -184,7 +267,7 @@ public:
 
     if (isCreateTableQuery(tokens)) {
       ParseTreeNode* ans = getCreateTableTree(tokens);
-      //ParseTreeNode::printParseTree(ans);
+      ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDeleteTableQuery(tokens)) {
       ParseTreeNode* ans = getDropTableTree(tokens);
