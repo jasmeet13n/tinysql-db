@@ -123,17 +123,14 @@ private:
   }
 
   static ParseTreeNode* getSelectSublist(std::vector<std::string>& tokens, int start_index) {
-
     std::string value = tokens[start_index];
-    if(value == "*") {
-      ParseTreeNode* sub_list = new ParseTreeNode(NODE_TYPE::ASTERISK, value);
-      return sub_list;
-    }
+    if(value == "*")
+      return new ParseTreeNode(NODE_TYPE::STAR, "*");
 
     ParseTreeNode* sub_list = new ParseTreeNode(NODE_TYPE::SELECT_SUBLIST, "select_sublist");
     (sub_list->children).push_back(new ParseTreeNode(NODE_TYPE::COLUMN_NAME, value));
 
-    if (tokens[start_index + 1] == ",") {
+    if (start_index + 1 < tokens.size() && tokens[start_index + 1] == ",") {
       (sub_list->children).push_back(getSelectSublist(tokens, start_index + 2));
     }
 
@@ -146,7 +143,7 @@ private:
     std::string value = tokens[start_index];
     (table_list->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, value));
 
-    if (tokens[start_index + 1] == ",") {
+    if (start_index < tokens.size() - 1 && tokens[start_index + 1] == ",") {
       (table_list->children).push_back(getTableList(tokens, start_index + 2));
     }
 
@@ -203,7 +200,7 @@ private:
   static ParseTreeNode* getSelectTree(std::vector<std::string>& tokens, int start_index = 0) {
     int distinct_index = 0;
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "select_statement");
-    (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "SELECT"));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_LITERAL, "SELECT"));
     if(tokens[1 + start_index] == "DISTINCT") {
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::DISTINCT_LITERAL, "DISTINCT"));
       distinct_index++;
@@ -244,7 +241,7 @@ private:
       //make where_clause
       std::string where_clause = "";
       while(where_start < tokens.size() && tokens[where_start] != "ORDER") {
-        where_clause += tokens[where_start++];
+        where_clause = where_clause + tokens[where_start++] + " ";
       }
       ((root->children[root->children.size() - 1])->children).push_back(
         new ParseTreeNode(NODE_TYPE::WHERE_CLAUSE, where_clause));
