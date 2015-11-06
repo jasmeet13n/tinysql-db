@@ -204,14 +204,15 @@ private:
     int distinct_index = 0;
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "select_statement");
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_STATEMENT, "SELECT"));
-    if(tokens[1] == "DISTINCT") {
+    if(tokens[1 + start_index] == "DISTINCT") {
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::DISTINCT_LITERAL, "DISTINCT"));
       distinct_index++;
     }
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::SELECT_LIST, "select_list"));
-    ((root->children[root->children.size() - 1])->children).push_back(getSelectSublist(tokens, 1 + distinct_index));
+    ((root->children[root->children.size() - 1])->children).push_back(getSelectSublist(
+      tokens, 1 + start_index + distinct_index));
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::FROM_LITERAL, "FROM"));
-    int table_list_start = 0;
+    int table_list_start = start_index;
     while (tokens[table_list_start] != "FROM") {
       table_list_start++;
     }
@@ -234,6 +235,7 @@ private:
         order_by_present = true;
         break;
       }
+      order_start++;
     }
 
     if(where_present) {
@@ -251,7 +253,7 @@ private:
     if(order_by_present) {
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::ORDER_LITERAL, "ORDER"));
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::BY_LITERAL, "BY"));
-      (root->children).push_back(new ParseTreeNode(NODE_TYPE::COLUMN_NAME, tokens[tokens.size() - 1]));
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::COLUMN_NAME, tokens[order_start + 2]));
     }
     return root;
   }
