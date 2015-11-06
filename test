@@ -1,4 +1,5 @@
 create table test (id INT, name STR20)
 insert into test (id, name) VALUES (10, "Jasmeet")
+SELECT * FROM test
 exit
 
