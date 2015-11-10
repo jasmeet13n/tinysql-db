@@ -35,6 +35,26 @@ public:
     }
   }
 
+  static void getSelectList(ParseTreeNode* node, std::vector<std::string>& select_list) {
+    if (node->type == NODE_TYPE::SELECT_STATEMENT) {
+      if(node->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) {
+        getSelectList(node->children[2]->children[0], select_list);
+      }
+      else {
+        getSelectList(node->children[1]->children[0], select_list);
+      }
+      return;
+    }
+    if(node->type == NODE_TYPE::STAR) {
+      select_list.push_back(node->value);
+      return;
+    }
+    select_list.push_back(node->children[0]->value);
+    if (node->children.size() == 2) {
+      getSelectList(node->children[1], select_list);
+    }
+  }
+
   static void getValueList(ParseTreeNode* node, std::vector<std::string>& value_list) {
     if (node->type == NODE_TYPE::INSERT_STATEMENT) {
       getValueList(node->children[4]->children[1], value_list);

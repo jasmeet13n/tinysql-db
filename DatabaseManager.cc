@@ -138,6 +138,71 @@ public:
     return true;
   }
 
+  bool processSelectStatement(ParseTreeNode* root) {
+    //Only for single table in table-list
+    std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
+     ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
+    Relation* r = schema_manager.getRelation(table_name);
+    if(r == nullptr)
+      return false;
+
+    // Get a memory block
+    int free_block_index = mManager.getFreeBlockIndex();
+    if (free_block_index == -1) {
+      return false;
+    }
+
+    std::vector<std::string> field_names;
+    std::vector<enum FIELD_TYPE> field_types;
+    std::vector<int> field_indices;
+
+    Utils::getSelectList(root, field_names);
+    const Schema& s = schema_manager.getSchema(table_name);
+
+    bool isSelectStar = false;
+    if (field_names[0] == "*") {
+      isSelectStar = true;
+    }
+
+    if(isSelectStar) {
+      field_names = s.getFieldNames();
+    } else {
+      for (int i = 0; i < field_names.size(); ++i) {
+        int index = s.getFieldOffset(field_names[i]);
+        field_indices.push_back(index);
+        field_types.push_back(s.getFieldType(index));
+      }
+    }
+
+    for(int i = 0; i < field_names.size(); i++) {
+      std::cout << field_names[i] << "\t";
+    }
+    std::cout << std::endl;
+  
+    for(int i = 0; i < r->getNumOfBlocks(); i++) {
+      r->getBlock(i, free_block_index);
+      Block* block_ptr = mem->getBlock(free_block_index);
+      std::vector<Tuple> tuples = block_ptr->getTuples();
+
+      for (int j = 0; j < tuples.size(); ++j) {
+        if (isSelectStar) {
+          std::cout << tuples[j] << std::endl;
+        } else {
+          for (int k = 0; k < field_indices.size(); ++k) {
+            if (field_types[k] == INT) {
+              std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
+            } else {
+              std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
+            }
+          }
+          std::cout << std::endl;
+        }
+      }
+    }
+    mManager.releaseBlock(free_block_index);
+    return true;
+  }
+
   bool processQuery(std::string& query) {
     ParseTreeNode* root = Parser::parseQuery(query);
     if (root == nullptr) {
@@ -150,6 +215,8 @@ public:
       return processDropTableStatement(root);
     } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
       return processInsertStatement(root);
+    } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
+      return processSelectStatement(root);
     }
     return false;
   }
