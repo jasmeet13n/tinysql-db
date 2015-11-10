@@ -26,7 +26,7 @@ private:
     return false;
   }
 
-  static bool isDeleteTableQuery(std::vector<std::string>& tokens) {
+  static bool isDropTableQuery(std::vector<std::string>& tokens) {
     if (tokens.size() != 3) {
       return false;
     }
@@ -268,7 +268,7 @@ public:
       ParseTreeNode* ans = getCreateTableTree(tokens);
       ParseTreeNode::printParseTree(ans);
       return ans;
-    } else if (isDeleteTableQuery(tokens)) {
+    } else if (isDropTableQuery(tokens)) {
       ParseTreeNode* ans = getDropTableTree(tokens);
       //ParseTreeNode::printParseTree(ans);
       return ans;
