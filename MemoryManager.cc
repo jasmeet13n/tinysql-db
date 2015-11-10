@@ -36,8 +36,31 @@ public:
     return -1;
   }
 
+  bool getNFreeBlockIndices(vector<int>& ans, int n) {
+    if (freeBlocks.size() < n) {
+      return false;
+    }
+
+    if (ans.size() != n) {
+      ans.resize(n, -1);
+    }
+
+    for (int i = 0; i < ans.size(); ++i) {
+      ans[i] = freeBlocks.top();
+      freeBlocks.pop();
+    }
+
+    return true;
+  }
+
   void releaseBlock(int i) {
     freeBlocks.push(i);
+  }
+
+  void releaseNBlocks(vector<int>& blocks) {
+    for (int i = 0; i < blocks.size(); ++i) {
+      releaseBlock(blocks[i]);
+    }
   }
 };
 
