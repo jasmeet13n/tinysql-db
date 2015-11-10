@@ -1,5 +1,9 @@
-create table test (id INT, name STR20)
-insert into test (id, name) VALUES (10, "Jasmeet")
+create table test (id INT, name STR20, status STR20)
+insert into test (id, name, status) VALUES (1, "Jasmeet Singh", "Hello World")
+insert into test (id, name, status) VALUES (2, "East Singh", "Hello What World")
+insert into test (id, name, status) VALUES (3, "West Jasmeet Singh", "Hello 2  World")
+insert into test (id, name, status) VALUES (4, "North Jasmeet Singh", "Hello 3  World")
+insert into test (id, name, status) VALUES (5, "South Jasmeet", "Hello 4  World")
 SELECT * FROM test
 exit
 
