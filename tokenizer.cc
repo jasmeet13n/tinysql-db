@@ -14,6 +14,9 @@ public:
     for (i = 0; i < text.size(); ++i) {
       if (!quotes && text[i] == '"') {
         quotes = true;
+        if (last < i - 1) {
+          ans.push_back(text.substr(last, i - last));
+        }
         last = i + 1;
       } else if ((quotes && text[i] == '"') || (!quotes && (text[i] == ',' || text[i] == '(' || text[i] == ')' || text[i] == ' '))) {
         if (quotes) {
