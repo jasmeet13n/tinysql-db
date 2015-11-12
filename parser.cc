@@ -270,7 +270,7 @@ private:
   }
 
   static ParseTreeNode* getDeleteFromTree(std::vector<std::string>& tokens) {
-    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::DELETE_LITERAL, "delete_statement");
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::DELETE_STATEMENT, "delete_statement");
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::DELETE_LITERAL, "DELETE"));
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::FROM_LITERAL, "FROM"));
 

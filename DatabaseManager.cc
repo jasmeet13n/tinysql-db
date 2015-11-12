@@ -203,6 +203,10 @@ public:
     return true;
   }
 
+  bool processDeleteStatement(ParseTreeNode* root) {
+
+  }
+
   bool processQuery(std::string& query) {
     ParseTreeNode* root = Parser::parseQuery(query);
     if (root == nullptr) {
@@ -217,6 +221,8 @@ public:
       return processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
       return processSelectStatement(root);
+    } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
+      return processDeleteStatement(root);
     }
     return false;
   }
