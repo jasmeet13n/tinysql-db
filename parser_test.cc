@@ -72,6 +72,28 @@ TEST(ParserTest, insertIntoTest) {
   //}
 }
 
+TEST(ParserTest, deleteFromTest) {
+  std::string test = "DELETE    FROM test";
+  ParseTreeNode* ans = Parser::parseQuery(test);
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("delete from test");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("Delete From test");
+  EXPECT_NE(nullptr, ans);
+
+  ans = Parser::parseQuery("Delete test");
+  EXPECT_EQ(nullptr, ans);
+
+  ans = Parser::parseQuery("Deletes FROM test");
+  EXPECT_EQ(nullptr, ans);
+
+  //for (int i = 0; i < ans.size(); ++i) {
+  //  cout << ans[i] << endl;
+  //}
+}
+
 int main(int argc, char **argv) {
   ::testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();

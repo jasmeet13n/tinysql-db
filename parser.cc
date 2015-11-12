@@ -65,6 +65,20 @@ private:
     return false;
   }
 
+  static bool isDeleteFromQuery(std::vector<std::string>& tokens) {
+    if (tokens.size() < 3) {
+      return false;
+    }
+    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
+    if (t0 == "DELETE") {
+      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
+      if (t1 == "FROM") {
+        return true;
+      }
+    }
+    return false;
+    }
+
   static ParseTreeNode* getAttributeTypeList(
       std::vector<std::string>& tokens, int start_index) {
     std::string att_name = tokens[start_index];
@@ -255,6 +269,17 @@ private:
     return root;
   }
 
+  static ParseTreeNode* getDeleteFromTree(std::vector<std::string>& tokens) {
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::DELETE_LITERAL, "delete_statement");
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::DELETE_LITERAL, "DELETE"));
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::FROM_LITERAL, "FROM"));
+
+    // add relation name child
+    (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, tokens[2]));
+
+    return root;
+  }
+
 public:
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
@@ -278,6 +303,14 @@ public:
       return ans;
     } else if (isSelectQuery(tokens)) {
       ParseTreeNode* ans = getSelectTree(tokens);
+      //ParseTreeNode::printParseTree(ans);
+      return ans;
+    } else if (isDeleteFromQuery(tokens)) {
+      std::cout << "Query Detected" << std::endl;
+      for (int i = 0; i < tokens.size(); ++i) {
+        std::cout << tokens[i] << std::endl;
+      }
+      ParseTreeNode* ans = getDeleteFromTree(tokens);
       ParseTreeNode::printParseTree(ans);
       return ans;
     }
