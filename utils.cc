@@ -9,7 +9,6 @@
 
 class Utils {
 public:
-
   static void getAttributeTypeList(ParseTreeNode* node, std::vector<std::string>& column_names,
     std::vector<enum FIELD_TYPE>& data_types) {
     if(node->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
@@ -69,6 +68,7 @@ public:
   static std::string getTableName(ParseTreeNode* root) {
     return root->children[2]->value;
   }
+
 };
 
 #endif

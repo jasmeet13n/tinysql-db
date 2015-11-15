@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <string>
+#include <stack>
 #include <algorithm>
 #include <gtest/gtest.h>
 #include <boost/algorithm/string.hpp>
@@ -164,6 +165,112 @@ private:
     return table_list;
   }
 
+  static bool isOperator(std::string& token) {
+    if (token == "OR" || token == "AND" || token == "NOT" || token == "=" || token == "<" || token == ">") {
+      return true;
+    } else if (token == "+" || token == "-" || token == "*" || token == "/") {
+      return true;
+    }
+    return false;
+  }
+
+  static bool isOpeningBracket(std::string& token) {
+    if (token == "(" || token == "[") {
+      return true;
+    }
+    return false;
+  }
+
+  static bool isClosingBracket(std::string& token) {
+      if (token == ")" || token == "]") {
+        return true;
+      }
+      return false;
+  }
+
+  static bool hasHigherPrecedence(std::string& stack_top, std::string& token) {
+    if (stack_top == token) {
+      return true;
+    }
+
+    if (stack_top == "+" || stack_top == "-") {
+      if (token == "*" || token == "/") {
+        return false;
+      } else {
+        return true;
+      }
+    }
+
+    if (stack_top == "*" || stack_top == "/") {
+      if (token == "+" || token == "-" || token == "=" || token == ">" || token == "<") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    if (stack_top == "=" || stack_top == "<" || stack_top == ">") {
+      if (token == "+" || token == "-" || token == "*" || token == "/") {
+        return false;
+      } else {
+        return true;
+      }
+    }
+
+    if (stack_top == "NOT") {
+      if (token == "AND" || token == "OR") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    if (stack_top == "AND") {
+      if (token == "OR") {
+        return true;
+      } else {
+        return false;
+      }
+    }
+
+    if (stack_top == "OR") {
+      return false;
+    }
+
+    return false;
+  }
+
+  static ParseTreeNode* getPostfixNode(std::vector<std::string>& tokens, int start_index, int end_index) {
+    ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::POSTFIX_EXPRESSION, "postfix_expression");
+    std::stack<std::string> st;
+
+    for (int i = start_index; i < end_index;  ++i) {
+      if (isOperator(tokens[i])) {
+        while (!st.empty() && !isOpeningBracket(st.top()) && hasHigherPrecedence(st.top(), tokens[i])) {
+          (root->children).push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, st.top()));
+          st.pop();
+        }
+        st.push(tokens[i]);
+      } else if (isOpeningBracket(tokens[i])) {
+        st.push(tokens[i]);
+      } else if (isClosingBracket(tokens[i])) {
+        while (!st.empty() && !isOpeningBracket(st.top())) {
+          (root->children).push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, st.top()));
+          st.pop();
+        }
+        st.pop();
+      } else {
+        (root->children).push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERAND, tokens[i]));
+      }
+    }
+
+    while (!st.empty()) {
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, st.top()));
+      st.pop();
+    }
+    return root;
+  }
+
   static ParseTreeNode* getCreateTableTree(std::vector<std::string>& tokens) {
     ParseTreeNode* root = new ParseTreeNode(NODE_TYPE::CREATE_TABLE_STATEMENT, "create_statement");
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::CREATE_LITERAL, "CREATE"));
@@ -223,13 +330,16 @@ private:
     ((root->children[root->children.size() - 1])->children).push_back(getSelectSublist(
       tokens, 1 + start_index + distinct_index));
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::FROM_LITERAL, "FROM"));
+
     int table_list_start = start_index;
     while (tokens[table_list_start] != "FROM") {
       table_list_start++;
     }
     table_list_start++;
     (root->children).push_back(getTableList(tokens, table_list_start));
+
     int where_start = table_list_start;
+    int where_end = tokens.size() - 1;
     int order_start = table_list_start;
     bool where_present = false;
     bool order_by_present = false;
@@ -244,21 +354,20 @@ private:
     while (order_start < tokens.size()) {
       if(tokens[order_start] == "ORDER") {
         order_by_present = true;
+        where_end = order_start;
         break;
       }
       order_start++;
     }
 
     if(where_present) {
-      where_start++;
+      for (int i = where_start; i < where_end; ++i) {
+        std::cout << tokens[i] << std::endl;
+      }
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::WHERE_LITERAL, "WHERE"));
       //make where_clause
-      std::string where_clause = "";
-      while(where_start < tokens.size() && tokens[where_start] != "ORDER") {
-        where_clause = where_clause + tokens[where_start++] + " ";
-      }
-      ((root->children[root->children.size() - 1])->children).push_back(
-        new ParseTreeNode(NODE_TYPE::WHERE_CLAUSE, where_clause));
+
+      (root->children).push_back(getPostfixNode(tokens, where_start + 1, where_end));
     }
 
     if(order_by_present) {
@@ -303,13 +412,9 @@ public:
       return ans;
     } else if (isSelectQuery(tokens)) {
       ParseTreeNode* ans = getSelectTree(tokens);
-      //ParseTreeNode::printParseTree(ans);
+      ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDeleteFromQuery(tokens)) {
-      std::cout << "Query Detected" << std::endl;
-      for (int i = 0; i < tokens.size(); ++i) {
-        std::cout << tokens[i] << std::endl;
-      }
       ParseTreeNode* ans = getDeleteFromTree(tokens);
       ParseTreeNode::printParseTree(ans);
       return ans;

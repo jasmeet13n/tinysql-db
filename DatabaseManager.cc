@@ -129,8 +129,8 @@ public:
     bool result = appendTupleToRelation(r, free_block_index, t);
     mManager.releaseBlock(free_block_index);
 
-    std::cout << *mem << std::endl;
-    std::cout << *r << std::endl;
+    //std::cout << *mem << std::endl;
+    //std::cout << *r << std::endl;
 
     if (result == false) {
       return false;
@@ -204,7 +204,7 @@ public:
   }
 
   bool processDeleteStatement(ParseTreeNode* root) {
-
+    return false;
   }
 
   bool processQuery(std::string& query) {

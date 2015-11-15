@@ -34,7 +34,8 @@ main.o: main.cc
 
 main: main.o StorageManager.o DatabaseManager.o
 	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o -lgtest -lpthread
+	rm *.o	
 	
 clean:
-	rm *.o
 	rm a.out
+	rm *.o
