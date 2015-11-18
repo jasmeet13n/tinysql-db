@@ -11,5 +11,4 @@ INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 100, 98, "C")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 69, 64, "C")
 SELECT * FROM course WHERE grade = "C" AND [ exam > 70 OR project > 70 ] AND NOT ( exam * 30 + homework * 20 + project * 50 ) / 100 < 60 ORDER BY grade
-SELECT DISTINCT course.grade, course2.grade FROM course, course2 WHERE course.sid = course2.sid AND [ course.exam > course2.exam OR course.grade = "A" AND course2.grade = "A" ] ORDER BY course.exam
 exit

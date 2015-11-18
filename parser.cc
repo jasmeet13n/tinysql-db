@@ -165,14 +165,7 @@ private:
     return table_list;
   }
 
-  static bool isOperator(std::string& token) {
-    if (token == "OR" || token == "AND" || token == "NOT" || token == "=" || token == "<" || token == ">") {
-      return true;
-    } else if (token == "+" || token == "-" || token == "*" || token == "/") {
-      return true;
-    }
-    return false;
-  }
+
 
   static bool isOpeningBracket(std::string& token) {
     if (token == "(" || token == "[") {
@@ -361,9 +354,6 @@ private:
     }
 
     if(where_present) {
-      for (int i = where_start; i < where_end; ++i) {
-        std::cout << tokens[i] << std::endl;
-      }
       (root->children).push_back(new ParseTreeNode(NODE_TYPE::WHERE_LITERAL, "WHERE"));
       //make where_clause
 
@@ -390,6 +380,15 @@ private:
   }
 
 public:
+  static bool isOperator(std::string& token) {
+    if (token == "OR" || token == "AND" || token == "NOT" || token == "=" || token == "<" || token == ">") {
+      return true;
+    } else if (token == "+" || token == "-" || token == "*" || token == "/") {
+      return true;
+    }
+    return false;
+  }
+
   static ParseTreeNode* parseQuery(const std::string& query) {
     std::vector<std::string> tokens;
     tokens = Tokenizer::getTokens(query);
@@ -400,7 +399,7 @@ public:
 
     if (isCreateTableQuery(tokens)) {
       ParseTreeNode* ans = getCreateTableTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDropTableQuery(tokens)) {
       ParseTreeNode* ans = getDropTableTree(tokens);
@@ -412,11 +411,11 @@ public:
       return ans;
     } else if (isSelectQuery(tokens)) {
       ParseTreeNode* ans = getSelectTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDeleteFromQuery(tokens)) {
       ParseTreeNode* ans = getDeleteFromTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     }
     return nullptr;

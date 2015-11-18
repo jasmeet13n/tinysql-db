@@ -15,6 +15,7 @@
 #include "parser.cc"
 #include "parse_tree.cc"
 #include "MemoryManager.cc"
+#include "ConditionEvaluator.cc"
 
 class DatabaseManager {
 private:
@@ -178,6 +179,9 @@ public:
       std::cout << field_names[i] << "\t";
     }
     std::cout << std::endl;
+
+    if (root->children.size() > 5)
+      ConditionEvaluator evaluator(root->children[5], r);
   
     for(int i = 0; i < r->getNumOfBlocks(); i++) {
       r->getBlock(i, free_block_index);
