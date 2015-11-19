@@ -8,7 +8,7 @@ SELECT status, name FROM test
 SELECT * FROM test
 SELECT * FROM test WHERE NOT id > 3
 CREATE TABLE test2 (id INT, name STR20, status STR20)
-insert into test2(id, name, status) SELECT * FROM test
+insert into test2(id, name, status) SELECT id, name, status FROM test
 SELECT * FROM test2
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")

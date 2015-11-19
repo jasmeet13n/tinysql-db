@@ -215,10 +215,10 @@ public:
           for (int k = 0; k < field_indices.size(); ++k) {
             if (field_types[k] == INT) {
               std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
-              temp_tuple.setField(field_types[k], tuples[j].getField(field_indices[k]).integer);
+              temp_tuple.setField(k, tuples[j].getField(field_indices[k]).integer);
             } else {
               std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
-              temp_tuple.setField(field_types[k], *(tuples[j].getField(field_indices[k]).str));
+              temp_tuple.setField(k, *(tuples[j].getField(field_indices[k]).str));
             }
           }
           insert_tuples.push_back(temp_tuple);
