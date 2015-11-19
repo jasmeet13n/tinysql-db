@@ -190,6 +190,14 @@ public:
       std::vector<Tuple> tuples = block_ptr->getTuples();
 
       for (int j = 0; j < tuples.size(); ++j) {
+        if (root->children.size() > 5) {
+          bool ans = eval.evaluate(tuples[j]);
+          if (ans == false) {
+            continue;
+          }
+          //std::cout << (ans == true? "TRUE" : "FALSE") << std::endl;
+        }
+
         if (isSelectStar) {
           std::cout << tuples[j] << std::endl;
         } else {

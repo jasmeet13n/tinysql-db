@@ -107,9 +107,9 @@ public:
       }
     }
 
-//    for (int i = 0; i < postfix.size(); ++i) {
-//      postfix[i].printFactor();
-//    }
+    //    for (int i = 0; i < postfix.size(); ++i) {
+    //      postfix[i].printFactor();
+    //    }
 
     // Dry evaluation using stack to convert STR20 to INT where required
     std::stack<Factor*> st;
@@ -151,20 +151,92 @@ public:
       }
     }
 
-//    for (int i = 0; i < postfix.size(); ++i) {
-//      postfix[i].printFactor();
-//    }
+    //    for (int i = 0; i < postfix.size(); ++i) {
+    //      postfix[i].printFactor();
+    //    }
   }
 
   bool evaluate(Tuple& tup) {
-    std::stack<Factor*> st;
+    std::stack<std::pair<FIELD_TYPE, Field> > st;
+
+    Field f_true, f_false;
+    f_true.integer = 1;
+    f_false.integer = 0;
+    std::pair<FIELD_TYPE, Field> bool_true = std::make_pair(INT, f_true);
+    std::pair<FIELD_TYPE, Field> bool_false = std::make_pair(INT, f_false);
+
     for (int i = 0; i < postfix.size(); ++i) {
       if (postfix[i].const_opr_var == 1) {
-        st.push(&postfix[i]);
+        st.push(std::make_pair(postfix[i].type, postfix[i].field));
       } else if (postfix[i].const_opr_var == -1) {
-        postfix[i].field = tup.getField(postfix[i].rel_offset);
-        st.push(&postfix[i]);
+        st.push(std::make_pair(postfix[i].type, tup.getField(postfix[i].rel_offset)));
+      } else {
+        std::string& opr = *(postfix[i].field.str);
+        if (opr == "NOT") {
+          std::pair<FIELD_TYPE, Field> f = st.top();
+          st.pop();
+          if (f.second.integer == 0) {
+            f.second.integer = 1;
+          } else {
+            f.second.integer = 0;
+          }
+          st.push(f);
+          continue;
+        }
+        std::pair<FIELD_TYPE, Field> f1 = st.top();
+        st.pop();
+        std::pair<FIELD_TYPE, Field> f2 = st.top();
+        st.pop();
+
+
+        if (opr == "=") {
+          if (f1.first == INT) {
+            if (f1.second.integer == f2.second.integer) {
+              st.push(bool_true);
+            } else {
+              st.push(bool_false);
+            }
+          } else {
+            if (*(f1.second.str) == *(f2.second.str)) {
+              st.push(bool_true);
+            } else {
+              st.push(bool_false);
+            }
+          }
+        } else if (opr == ">") {
+          if (f1.first == INT) {
+            if (f2.second.integer > f1.second.integer) {
+              st.push(bool_true);
+            } else {
+              st.push(bool_false);
+            }
+          }
+        } else if (opr == "<") {
+          if (f1.first == INT) {
+            if (f2.second.integer < f1.second.integer) {
+              st.push(bool_true);
+            } else {
+              st.push(bool_false);
+            }
+          }
+        } else if (opr == "AND") {
+          if (f1.second.integer == 1 && f2.second.integer == 1) {
+            st.push(bool_true);
+          } else {
+            st.push(bool_false);
+          }
+        } else if (opr == "OR") {
+          if (f1.second.integer == 1 || f2.second.integer == 1) {
+            st.push(bool_true);
+          } else {
+            st.push(bool_false);
+          }
+        }
       }
+    }
+    std::pair<FIELD_TYPE, Field> last = st.top();
+    if (last.second.integer == 1) {
+      return true;
     }
     return false;
   }

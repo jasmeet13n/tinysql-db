@@ -6,7 +6,7 @@ insert into test (id, name, status) VALUES (4, "North Jasmeet Singh", "Hello 3  
 insert into test (id, name, status) VALUES (5, "South Jasmeet", "Hello 4  World")
 SELECT status, name FROM test
 SELECT * FROM test
-SELECT * FROM test WHERE id > 2
+SELECT * FROM test WHERE id = 4 OR id < 3
 exit
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
