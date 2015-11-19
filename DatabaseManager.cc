@@ -16,6 +16,7 @@
 #include "parse_tree.cc"
 #include "MemoryManager.cc"
 #include "ConditionEvaluator.cc"
+#include "logical_query_tree.cc"
 
 class DatabaseManager {
 private:
@@ -213,7 +214,8 @@ public:
   }
 
   void changeAttributeNames(ParseTreeNode* root) {
-    if(root->children.size() > 5 && root->children[5]->type == NODE_TYPE::POSTFIX_EXPRESSION) {
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
+    if(root->children.size() > 5 && root->children[index]->type == NODE_TYPE::POSTFIX_EXPRESSION) {
       std::vector<std::string> tables;
       Utils::getTableList(root, tables);
       std::unordered_map<std::string, std::string> column_names_map;
@@ -224,7 +226,7 @@ public:
           column_names_map[field_names[j]] = tables[i] + "." + field_names[j];
         }
       }
-      ParseTreeNode* exp_root = root->children[5];
+      ParseTreeNode* exp_root = (root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) ? root->children[6] : root->children[5];
       for(int i = 0; i < exp_root->children.size(); i++) {
         ParseTreeNode* temp = exp_root->children[i];
         if(temp->type == NODE_TYPE::POSTFIX_OPERAND && temp->value.find(".") == std::string::npos) {
@@ -232,6 +234,25 @@ public:
         }
       }
     }
+  }
+
+  LogicalQueryTree* createInitialLogicalQueryTree(ParseTreeNode* pt_root) {
+    // I think we need Logical Query Plan only if there are multiple tables
+    // Otherwise directly use parsetree to output
+
+    // create root -> PROJECTION
+    LogicalQueryTree* lqt_root = new LogicalQueryTree(LQT_NODE_TYPE::PROJECTION);
+    Utils::getSelectList(pt_root, lqt_root->att_list);
+
+    // create child -> SELECTION
+    lqt_root->children.push_back(new LogicalQueryTree(LQT_NODE_TYPE::SELECTION));
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
+    if(pt_root->children.size() >= index-1 && pt_root->children[index-1]->type == NODE_TYPE::WHERE_LITERAL) {
+      lqt_root->children[0]->condition = pt_root->children[index];
+    }
+
+    //create child -> CROSS JOIN
+
   }
 
   bool processQuery(std::string& query) {
