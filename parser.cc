@@ -332,7 +332,7 @@ private:
     (root->children).push_back(getTableList(tokens, table_list_start));
 
     int where_start = table_list_start;
-    int where_end = tokens.size() - 1;
+    int where_end = tokens.size();
     int order_start = table_list_start;
     bool where_present = false;
     bool order_by_present = false;
