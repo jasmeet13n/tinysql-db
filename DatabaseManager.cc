@@ -257,25 +257,61 @@ public:
     }
   }
 
-  LogicalQueryTree* createInitialLogicalQueryTree(ParseTreeNode* pt_root) {
+  LQueryTreeNode* createLogicalQueryTree(ParseTreeNode* pt_root) {
     // I think we need Logical Query Plan only if there are multiple tables
     // Otherwise directly use parsetree to output
 
-    // create root -> PROJECTION
-    LogicalQueryTree* lqt_root = new LogicalQueryTree(LQT_NODE_TYPE::PROJECTION);
-    Utils::getSelectList(pt_root, lqt_root->att_list);
+    // create root
+    LQueryTreeNode* lqt_root = nullptr;
 
-    // create child -> SELECTION
-    lqt_root->children.push_back(new LogicalQueryTree(LQT_NODE_TYPE::SELECTION));
-    int index = pt_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
-    if(pt_root->children.size() >= index-1 && pt_root->children[index-1]->type == NODE_TYPE::WHERE_LITERAL) {
-      lqt_root->children[0]->condition = pt_root->children[index];
-    }
+    // create PROJECTION
+    LQueryTreeNode* projection_root = createProjection(pt_root);
 
-    //create child -> CROSS JOIN
+    // create SELECTION
+    LQueryTreeNode* selection_root = createSelection(pt_root);
+
+    //create CROSS JOIN
+    LQueryTreeNode* cross_join_root = createCrossJoin(pt_root);
 
     //return root
     return lqt_root;
+  }
+
+  LQueryTreeNode* createProjection(ParseTreeNode* pt_root) {
+    LQueryTreeNode* lqt_node = new LQueryTreeNode(LQT_NODE_TYPE::PROJECTION);
+    Utils::getSelectList(pt_root, lqt_node->att_list);
+    return lqt_node;
+  }
+
+  LQueryTreeNode* createSelection(ParseTreeNode* pt_root) {
+    int index = pt_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
+    LQueryTreeNode* lqt_node = new LQueryTreeNode(LQT_NODE_TYPE::SELECTION);
+    if(pt_root->children.size() >= index-1 && pt_root->children[index-1]->type == NODE_TYPE::WHERE_LITERAL) {
+      lqt_node->condition = pt_root->children[index];
+    }
+    return lqt_node;
+  }
+
+  // Helper for createCrossJoin
+  void getCrossJoin(LQueryTreeNode* lqt_node, ParseTreeNode* pt_node) {
+    //create right deep tree
+    lqt_node->children.push_back(new LQueryTreeNode(LQT_NODE_TYPE::TABLE_SCAN));
+    lqt_node->children[lqt_node->children.size() - 1]->value = pt_node->children[0]->value;
+    if(pt_node->children[1]->children.size() == 1) {
+      lqt_node->children.push_back(new LQueryTreeNode(LQT_NODE_TYPE::TABLE_SCAN));
+      lqt_node->children[lqt_node->children.size() - 1]->value = pt_node->children[1]->children[0]->value;
+      return;
+    }
+    lqt_node->children.push_back(new LQueryTreeNode(LQT_NODE_TYPE::CROSS_JOIN));
+    getCrossJoin(lqt_node->children[1], pt_node->children[1]);
+  }
+
+  // Cross Join SubTree
+  LQueryTreeNode* createCrossJoin(ParseTreeNode* pt_root) {
+    LQueryTreeNode* lqt_node = new LQueryTreeNode(LQT_NODE_TYPE::CROSS_JOIN);
+    int index = pt_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    getCrossJoin(lqt_node, pt_root->children[index]);
+    return lqt_node;
   }
 
   bool processQuery(std::string& query) {

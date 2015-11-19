@@ -9,23 +9,24 @@ enum LQT_NODE_TYPE {
   SELECTION,
   CROSS_JOIN,
   NATURAL_JOIN,
-  REMOVE_DUPS
+  REMOVE_DUPS,
+  TABLE_SCAN
 };
 
-class LogicalQueryTree {
+class LQueryTreeNode {
 private:
 public:
   enum LQT_NODE_TYPE type;
-  std::string value;
+  std::string value; // This can be table_name etc.
   std::vector<std::string> att_list; // This can be list of column_names
-  std::vector<LogicalQueryTree *> children;
+  std::vector<LQueryTreeNode *> children;
   ParseTreeNode* condition; // In case of selection with condition
 
-  LogicalQueryTree(enum LQT_NODE_TYPE t) {
+  LQueryTreeNode(enum LQT_NODE_TYPE t) {
     type = t;
   }
 
-  ~LogicalQueryTree() {
+  ~LQueryTreeNode() {
     for (int i = 0; i < children.size(); ++i) {
       delete children[i];
     }
