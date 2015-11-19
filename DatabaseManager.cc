@@ -27,28 +27,28 @@ private:
 	bool appendTupleToRelation(Relation* relation_ptr, int memory_block_index, Tuple& tuple) {
 	  Block* block_ptr;
 	  if (relation_ptr->getNumOfBlocks() == 0) {
-	    cout << "The relation is empty" << endl;
-	    cout << "Get the handle to the memory block " << memory_block_index << " and clear it" << endl;
+	    //cout << "The relation is empty" << endl;
+	    //cout << "Get the handle to the memory block " << memory_block_index << " and clear it" << endl;
 	    block_ptr = mem->getBlock(memory_block_index);
 	    block_ptr->clear(); //clear the block
 	    block_ptr->appendTuple(tuple); // append the tuple
-	    cout << "Write to the first block of the relation" << endl;
+	    //cout << "Write to the first block of the relation" << endl;
 	    relation_ptr->setBlock(relation_ptr->getNumOfBlocks(), memory_block_index);
 	  } else {
-	    cout << "Read the last block of the relation into memory block: " << memory_block_index << endl;
+	    //cout << "Read the last block of the relation into memory block: " << memory_block_index << endl;
 	    relation_ptr->getBlock(relation_ptr->getNumOfBlocks() - 1, memory_block_index);
 	    block_ptr = mem->getBlock(memory_block_index);
 
 	    if (block_ptr->isFull()) {
-	      cout << "(The block is full: Clear the memory block and append the tuple)" << endl;
+	      //cout << "(The block is full: Clear the memory block and append the tuple)" << endl;
 	      block_ptr->clear(); //clear the block
 	      block_ptr->appendTuple(tuple); // append the tuple
-	      cout << "Write to a new block at the end of the relation" << endl;
+	      //cout << "Write to a new block at the end of the relation" << endl;
 	      relation_ptr->setBlock(relation_ptr->getNumOfBlocks(), memory_block_index); //write back to the relation
 	    } else {
-	      cout << "(The block is not full: Append it directly)" << endl;
+	      //cout << "(The block is not full: Append it directly)" << endl;
 	      block_ptr->appendTuple(tuple); // append the tuple
-	      cout << "Write to the last block of the relation" << endl;
+	      //cout << "Write to the last block of the relation" << endl;
 	      relation_ptr->setBlock(relation_ptr->getNumOfBlocks()-1,memory_block_index); //write back to the relation
 	    }
 	  }
@@ -180,8 +180,9 @@ public:
     }
     std::cout << std::endl;
 
+    ConditionEvaluator eval;
     if (root->children.size() > 5)
-      ConditionEvaluator evaluator(root->children[5], r);
+      eval.initialize(root->children[5], r);
   
     for(int i = 0; i < r->getNumOfBlocks(); i++) {
       r->getBlock(i, free_block_index);
@@ -212,6 +213,7 @@ public:
   }
 
   bool processQuery(std::string& query) {
+    std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);
     if (root == nullptr) {
       return false;

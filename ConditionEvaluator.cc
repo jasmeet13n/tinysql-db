@@ -74,7 +74,7 @@ private:
 
   std::vector<Factor> postfix;
 public:
-  ConditionEvaluator(ParseTreeNode* expression_tree_root, Relation* rel) {
+  void initialize(ParseTreeNode* expression_tree_root, Relation* rel) {
     const string& table_name = rel->getRelationName();
     const Schema& schema = rel->getSchema();
 
@@ -157,7 +157,15 @@ public:
   }
 
   bool evaluate(Tuple& tup) {
-
+    std::stack<Factor*> st;
+    for (int i = 0; i < postfix.size(); ++i) {
+      if (postfix[i].const_opr_var == 1) {
+        st.push(&postfix[i]);
+      } else if (postfix[i].const_opr_var == -1) {
+        postfix[i].field = tup.getField(postfix[i].rel_offset);
+        st.push(&postfix[i]);
+      }
+    }
     return false;
   }
 };
