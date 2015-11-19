@@ -220,6 +220,28 @@ public:
     return false;
   }
 
+  void changeAttributeNames(ParseTreeNode* root) {
+    if(root->children.size() > 5 && root->children[5]->type == NODE_TYPE::POSTFIX_EXPRESSION) {
+      std::vector<std::string> tables;
+      Utils::getTableList(root, tables);
+      std::unordered_map<std::string, std::string> column_names_map;
+      for(int i = 0; i < tables.size(); i++) {
+        Schema schema = schema_manager.getSchema(tables[i]);
+        std::vector<std::string> field_names = schema.getFieldNames();
+        for(int j = 0; j < field_names.size(); j++) {
+          column_names_map[field_names[j]] = tables[i] + "." + field_names[j];
+        }
+      }
+      ParseTreeNode* exp_root = root->children[5];
+      for(int i = 0; i < exp_root->children.size(); i++) {
+        ParseTreeNode* temp = exp_root->children[i];
+        if(temp->type == NODE_TYPE::POSTFIX_OPERAND && temp->value.find(".") == std::string::npos) {
+          temp->value = column_names_map[temp->value];  
+        }
+      }
+    }
+  }
+
   bool processQuery(std::string& query) {
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);

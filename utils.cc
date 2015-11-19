@@ -54,6 +54,22 @@ public:
     }
   }
 
+  static void getTableList(ParseTreeNode* node, std::vector<std::string>& table_list) {
+    if (node->type == NODE_TYPE::SELECT_STATEMENT) {
+      if(node->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) {
+        getTableList(node->children[4], table_list);
+      }
+      else {
+        getTableList(node->children[3], table_list);
+      }
+      return;
+    }
+    table_list.push_back(node->children[0]->value);
+    if (node->children.size() == 2) {
+      getTableList(node->children[1], table_list);
+    }
+  }
+
   static void getValueList(ParseTreeNode* node, std::vector<std::string>& value_list) {
     if (node->type == NODE_TYPE::INSERT_STATEMENT) {
       getValueList(node->children[4]->children[1], value_list);
