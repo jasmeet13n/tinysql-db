@@ -411,7 +411,7 @@ public:
       return ans;
     } else if (isSelectQuery(tokens)) {
       ParseTreeNode* ans = getSelectTree(tokens);
-      ParseTreeNode::printParseTree(ans);
+      //ParseTreeNode::printParseTree(ans);
       return ans;
     } else if (isDeleteFromQuery(tokens)) {
       ParseTreeNode* ans = getDeleteFromTree(tokens);
