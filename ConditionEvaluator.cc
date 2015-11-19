@@ -188,8 +188,28 @@ public:
         std::pair<FIELD_TYPE, Field> f2 = st.top();
         st.pop();
 
-
-        if (opr == "=") {
+        Field f;
+        if (opr == "+") {
+          if (f1.first == INT) {
+            f.integer = f1.second.integer + f2.second.integer;
+            st.push(std::make_pair(INT, f));
+          }
+        } else if (opr == "-") {
+          if (f1.first == INT) {
+            f.integer = f2.second.integer - f1.second.integer;
+            st.push(std::make_pair(INT, f));
+          }
+        } else if (opr == "*") {
+          if (f1.first == INT) {
+            f.integer = (f1.second.integer)*(f2.second.integer);
+            st.push(std::make_pair(INT, f));
+          }
+        } else if (opr == "/") {
+          if (f1.first == INT) {
+            f.integer = (f2.second.integer)/(f1.second.integer);
+            st.push(std::make_pair(INT, f));
+          }
+        } else if (opr == "=") {
           if (f1.first == INT) {
             if (f1.second.integer == f2.second.integer) {
               st.push(bool_true);
