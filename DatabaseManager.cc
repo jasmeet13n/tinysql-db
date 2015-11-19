@@ -95,10 +95,12 @@ public:
     }
     for(int i = 0; i < tuples.size(); i++) {
       result = appendTupleToRelation(r, free_block_index, tuples[i]);
-      mManager.releaseBlock(free_block_index);
-      if(!result)
+      if(!result) {
         return false;
+        mManager.releaseBlock(free_block_index);
+      }
     }
+    mManager.releaseBlock(free_block_index);
     return true;
   }
 
@@ -148,7 +150,7 @@ public:
     return insertTuplesIntoTable(table_name, insert_tuples);
   }
 
-  bool processSelectStatement(ParseTreeNode* root, std::vector<Tuple>& insert_tuples) {
+  bool processSelectStatement(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
     //Only for single table in table-list
     std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
      ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
@@ -184,10 +186,12 @@ public:
       }
     }
 
-    for(int i = 0; i < field_names.size(); i++) {
-      std::cout << field_names[i] << "\t";
+    if(print) {
+      for(int i = 0; i < field_names.size(); i++) {
+        std::cout << field_names[i] << "\t";
+      }
+      std::cout << std::endl;
     }
-    std::cout << std::endl;
 
     ConditionEvaluator eval;
     if (root->children.size() > 5)
@@ -208,21 +212,29 @@ public:
         }
 
         if (isSelectStar) {
-          std::cout << tuples[j] << std::endl;
-          insert_tuples.push_back(tuples[j]);
+          if(print) 
+            std::cout << tuples[j] << std::endl;
+          else
+            insert_tuples.push_back(tuples[j]);
         } else {
           Tuple temp_tuple = r->createTuple();
           for (int k = 0; k < field_indices.size(); ++k) {
             if (field_types[k] == INT) {
-              std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
-              temp_tuple.setField(k, tuples[j].getField(field_indices[k]).integer);
+              if(print) 
+                std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
+              else
+                temp_tuple.setField(k, tuples[j].getField(field_indices[k]).integer);
             } else {
-              std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
-              temp_tuple.setField(k, *(tuples[j].getField(field_indices[k]).str));
+              if(print)
+                std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
+              else
+                temp_tuple.setField(k, *(tuples[j].getField(field_indices[k]).str));
             }
           }
-          insert_tuples.push_back(temp_tuple);
-          std::cout << std::endl;
+          if(print)
+            std::cout << std::endl;
+          else
+            insert_tuples.push_back(temp_tuple);
         }
       }
     }
@@ -329,7 +341,7 @@ public:
       return processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
       std::vector<Tuple> tuples;
-      return processSelectStatement(root, tuples);
+      return processSelectStatement(root, tuples, true);
     } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
       return processDeleteStatement(root);
     }
