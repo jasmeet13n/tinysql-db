@@ -131,8 +131,12 @@ private:
 
     ParseTreeNode* insert_tuples = new ParseTreeNode(NODE_TYPE::INSERT_TUPLES, "insert_tuples");
 
-    (insert_tuples->children).push_back(new ParseTreeNode(NODE_TYPE::VALUES_LITERAL, "VALUES"));
-    (insert_tuples->children).push_back(getValueList(tokens, start_index + 2));
+    if(tokens[start_index] == "VALUES") {
+      (insert_tuples->children).push_back(new ParseTreeNode(NODE_TYPE::VALUES_LITERAL, "VALUES"));
+      (insert_tuples->children).push_back(getValueList(tokens, start_index + 2));
+    }
+    else
+      (insert_tuples->children).push_back(getSelectTree(tokens, start_index));
 
     return insert_tuples;
   }

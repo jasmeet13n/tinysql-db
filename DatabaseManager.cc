@@ -86,6 +86,22 @@ public:
     return schema_manager.deleteRelation(table_name);
   }
 
+  bool insertTuplesIntoTable(std::string table_name, std::vector<Tuple> tuples) {
+    Relation* r = schema_manager.getRelation(table_name);
+    bool result = true;
+    int free_block_index = mManager.getFreeBlockIndex();
+    if (free_block_index == -1) {
+      return false;
+    }
+    for(int i = 0; i < tuples.size(); i++) {
+      result = appendTupleToRelation(r, free_block_index, tuples[i]);
+      mManager.releaseBlock(free_block_index);
+      if(!result)
+        return false;
+    }
+    return true;
+  }
+
   bool processInsertStatement(ParseTreeNode* root) {
     std::string table_name = Utils::getTableName(root);
     Relation* r = schema_manager.getRelation(table_name);
@@ -93,54 +109,46 @@ public:
       return false;
     }
 
-    // get attribute_list
-    std::vector<std::string> att_list;
-    Utils::getAttributeList(root, att_list);
+    std::vector<Tuple> insert_tuples;
 
-    // get value_list
-    std::vector<std::string> value_list;
-    Utils::getValueList(root, value_list);
+    if(root->children[4]->children[0]->type == NODE_TYPE::VALUES_LITERAL) {
+      // get attribute_list
+      std::vector<std::string> att_list;
+      Utils::getAttributeList(root, att_list);
 
-    // for (int i = 0; i < att_list.size(); ++i) {
-    //  std::cout << att_list[i] << " :: " << value_list[i] << std::endl;
-    // }
+      // get value_list
+      std::vector<std::string> value_list;
+      Utils::getValueList(root, value_list);
 
-    // get schema from relation
-    Schema s = r->getSchema();
-    Tuple t = r->createTuple();
+      // get schema from relation
+      Schema s = r->getSchema();
+      Tuple t = r->createTuple();
 
-    // get field types from schema
-    for (int i = 0; i < att_list.size(); ++i) {
-      FIELD_TYPE f = s.getFieldType(att_list[i]);
-      bool result = true;
-      if (f == INT) {
-        int value = stoi(value_list[i], nullptr, 10);
-        result = t.setField(att_list[i], value);
-      } else {
-        result = t.setField(att_list[i], value_list[i]);
+
+      // get field types from schema
+      for (int i = 0; i < att_list.size(); ++i) {
+        FIELD_TYPE f = s.getFieldType(att_list[i]);
+        bool result = true;
+        if (f == INT) {
+          int value = stoi(value_list[i], nullptr, 10);
+          result = t.setField(att_list[i], value);
+        } else {
+          result = t.setField(att_list[i], value_list[i]);
+        }
+        if (result == false) {
+          return false;
+        }
       }
-      if (result == false) {
-        return false;
-      }
+      insert_tuples.push_back(t);
+    }
+    else {
+      processSelectStatement(root->children[4]->children[0], insert_tuples);
     }
 
-    int free_block_index = mManager.getFreeBlockIndex();
-    if (free_block_index == -1) {
-      return false;
-    }
-    bool result = appendTupleToRelation(r, free_block_index, t);
-    mManager.releaseBlock(free_block_index);
-
-    //std::cout << *mem << std::endl;
-    //std::cout << *r << std::endl;
-
-    if (result == false) {
-      return false;
-    }
-    return true;
+    return insertTuplesIntoTable(table_name, insert_tuples);
   }
 
-  bool processSelectStatement(ParseTreeNode* root) {
+  bool processSelectStatement(ParseTreeNode* root, std::vector<Tuple>& insert_tuples) {
     //Only for single table in table-list
     std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
      ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
@@ -201,14 +209,19 @@ public:
 
         if (isSelectStar) {
           std::cout << tuples[j] << std::endl;
+          insert_tuples.push_back(tuples[j]);
         } else {
+          Tuple temp_tuple = r->createTuple();
           for (int k = 0; k < field_indices.size(); ++k) {
             if (field_types[k] == INT) {
               std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
+              temp_tuple.setField(field_types[k], tuples[j].getField(field_indices[k]).integer);
             } else {
               std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
+              temp_tuple.setField(field_types[k], *(tuples[j].getField(field_indices[k]).str));
             }
           }
+          insert_tuples.push_back(temp_tuple);
           std::cout << std::endl;
         }
       }
@@ -254,13 +267,15 @@ public:
 
     // create child -> SELECTION
     lqt_root->children.push_back(new LogicalQueryTree(LQT_NODE_TYPE::SELECTION));
-    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
+    int index = pt_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 6 : 5;
     if(pt_root->children.size() >= index-1 && pt_root->children[index-1]->type == NODE_TYPE::WHERE_LITERAL) {
       lqt_root->children[0]->condition = pt_root->children[index];
     }
 
     //create child -> CROSS JOIN
 
+    //return root
+    return lqt_root;
   }
 
   bool processQuery(std::string& query) {
@@ -277,7 +292,8 @@ public:
     } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
       return processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
-      return processSelectStatement(root);
+      std::vector<Tuple> tuples;
+      return processSelectStatement(root, tuples);
     } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
       return processDeleteStatement(root);
     }
