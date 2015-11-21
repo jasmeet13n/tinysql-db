@@ -24,3 +24,10 @@ main :
   - while (Parser.nextQuery) {
     DatabaseManager.executeQuery
   }
+
+
+LogicalQueryTree :
+  NodeType - Projection, Selection, CrossJoin, NaturalJoin, RemoveDups, etc.
+  ParseTree* Condition
+  std::vector<std::string> column-names
+

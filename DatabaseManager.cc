@@ -268,6 +268,111 @@ public:
     }
   }
 
+  // Cross Join - One Pass Algorithm
+  Relation* crossJoinOnePass(Relation* small, Relation* large) {
+    int small_n = small->getNumOfBlocks();
+    int large_n = large->getNumOfBlocks();
+    std::string small_relation_name = small->getRelationName();
+    std::string large_relation_name = large->getRelationName();
+    Schema small_schema = schema_manager.getSchema(small_relation_name);
+    Schema large_schema = schema_manager.getSchema(large_relation_name);
+    std::vector<std::string> small_column_names = small_schema.getFieldNames();
+    std::vector<enum FIELD_TYPE> small_data_types = small_schema.getFieldTypes();
+    std::vector<std::string> large_column_names = large_schema.getFieldNames();
+    std::vector<enum FIELD_TYPE> large_data_types = large_schema.getFieldTypes();
+
+    // add table name to each column name
+    for(int  i = 0; i < small_column_names.size(); i++)
+      small_column_names[i] = small_relation_name + "." + small_column_names[i];
+
+    for(int  i = 0; i < large_column_names.size(); i++)
+      large_column_names[i] = large_relation_name + "." + large_column_names[i];
+
+    std::vector<std::string> new_column_names;
+    std::vector<enum FIELD_TYPE> new_data_types;
+
+    // Join column_names and data_types
+    new_column_names.insert(new_column_names.end(), small_column_names.begin(), small_column_names.end());
+    new_column_names.insert(new_column_names.end(), large_column_names.begin(), large_column_names.end());
+    new_data_types.insert(new_data_types.end(), small_data_types.begin(), small_data_types.end());
+    new_data_types.insert(new_data_types.end(), large_data_types.begin(), large_data_types.end());
+
+    Schema new_schema(new_column_names, new_data_types);
+    std::string new_relation_name = small_relation_name + large_relation_name;
+    Relation* new_relation = schema_manager.createRelation(new_relation_name, new_schema);
+
+    // Get small_n free blocks from main memory
+    std::vector<int> small_block_indices;
+    if(!mManager.getNFreeBlockIndices(small_block_indices, small_n)) {
+      return nullptr;
+    }
+
+    // Copy blocks from small relation to free_blocks in memory
+    for(int i = 0; i < small_n; i++) {
+      small->getBlock(i, small_block_indices[i]);
+    }
+
+    int large_mem_block_index = mManager.getFreeBlockIndex();
+    if(large_mem_block_index == -1)
+      return nullptr;
+
+    // Join operation
+    // for large_n blocks
+    for(int i = 0; i < large_n; i++) { 
+      large->getBlock(i, large_mem_block_index);
+      Block* large_mem_block = mem->getBlock(large_mem_block_index);
+      std::vector<Tuple> large_tuples = large_mem_block->getTuples();
+      // for each tuple in block
+      for(int t1 = 0; t1 < large_tuples.size(); t1++) { 
+        if(!large_tuples[t1].isNull()) {
+          // for small_n blocks in memory
+          for(int j = 0; j < small_n; j++) { 
+            Block* small_mem_block = mem->getBlock(small_block_indices[j]);
+            std::vector<Tuple> small_tuples = small_mem_block->getTuples();
+            // for each tuple in block
+            for(int t2 = 0; t2 < small_tuples.size(); t2++) { 
+              if(!small_tuples[t2].isNull()) {
+                Tuple new_tuple = new_relation->createTuple();
+
+                for(int index = 0; index < small_column_names.size(); index++) {
+                  FIELD_TYPE f = new_schema.getFieldType(small_column_names[index]);
+                  if(f == INT) {
+                    new_tuple.setField(index, small_tuples[t2].getField(index).integer);
+                  }
+                  else {
+                    new_tuple.setField(index, *(small_tuples[t2].getField(index).str));
+                  }
+                }
+
+                for(int index = 0; index < large_column_names.size(); index++) {
+                  FIELD_TYPE f = new_schema.getFieldType(large_column_names[index]);
+                  if(f == INT) {
+                    new_tuple.setField(small_column_names.size()+index, 
+                      large_tuples[t1].getField(index).integer);
+                  }
+                  else {
+                    new_tuple.setField(small_column_names.size()+index, 
+                      *(large_tuples[t1].getField(index).str));
+                  }
+                }
+
+                int free_block_index = mManager.getFreeBlockIndex();
+                if(free_block_index == -1)
+                  return nullptr;
+                appendTupleToRelation(new_relation, free_block_index, new_tuple);
+                mManager.releaseBlock(free_block_index);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    mManager.releaseBlock(large_mem_block_index);
+    mManager.releaseNBlocks(small_block_indices);
+    return new_relation;
+  }
+
   bool processQuery(std::string& query) {
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);
