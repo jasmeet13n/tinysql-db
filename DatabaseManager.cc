@@ -143,13 +143,34 @@ public:
       insert_tuples.push_back(t);
     }
     else {
-      processSelectStatement(root->children[4]->children[0], insert_tuples);
+      processSelectSingleTable(root->children[4]->children[0], insert_tuples);
     }
 
     return insertTuplesIntoTable(table_name, insert_tuples);
   }
 
-  bool processSelectStatement(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
+  bool processSelectStatement(ParseTreeNode* root) {
+    if(root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) {
+      //single table
+      if(root->children[4]->children.size() == 1) {
+        std::vector<Tuple> tuples;
+        return processSelectSingleTable(root, tuples, true);
+      }
+      else {
+        // make logical query plan
+      }
+    }
+    else if(root->children[3]->children.size() == 1) { //single table
+      std::vector<Tuple> tuples;
+      return processSelectSingleTable(root, tuples, true);
+    }
+    else {
+      // make logical query plan
+    }
+    return false;
+  }
+
+  bool processSelectSingleTable(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
     //Only for single table in table-list
     std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
      ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
@@ -387,8 +408,7 @@ public:
     } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
       return processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
-      std::vector<Tuple> tuples;
-      return processSelectStatement(root, tuples, true);
+      return processSelectStatement(root);
     } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
       return processDeleteStatement(root);
     }
