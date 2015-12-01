@@ -150,22 +150,14 @@ public:
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
-    if(root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) {
-      //single table
-      if(root->children[4]->children.size() == 1) {
-        std::vector<Tuple> tuples;
-        return processSelectSingleTable(root, tuples, true);
-      }
-      else {
-        // make logical query plan
-      }
-    }
-    else if(root->children[3]->children.size() == 1) { //single table
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
       return processSelectSingleTable(root, tuples, true);
     }
     else {
       // make logical query plan
+      LQueryTreeNode* lqt_root = Utils::createLogicalQueryTree(root);
     }
     return false;
   }

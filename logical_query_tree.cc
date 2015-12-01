@@ -10,7 +10,8 @@ enum LQT_NODE_TYPE {
   CROSS_JOIN,
   NATURAL_JOIN,
   REMOVE_DUPS,
-  TABLE_SCAN
+  TABLE_SCAN,
+  DUP_REMOVE
 };
 
 class LQueryTreeNode {

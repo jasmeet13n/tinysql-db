@@ -90,9 +90,6 @@ public:
     // I think we need Logical Query Plan only if there are multiple tables
     // Otherwise directly use parsetree to output
 
-    // create root
-    LQueryTreeNode* lqt_root = nullptr;
-
     // create PROJECTION
     LQueryTreeNode* projection_root = createProjection(pt_root);
 
@@ -102,8 +99,32 @@ public:
     //create CROSS JOIN
     LQueryTreeNode* cross_join_root = createCrossJoin(pt_root);
 
+    //create DUP REMOVAL
+    LQueryTreeNode* dup_remove_root = createDupRemove(pt_root);
+
+    LQueryTreeNode* current = projection_root;
+
+    //add dup_remove root
+    if(dup_remove_root != nullptr) {
+      current->children.push_back(dup_remove_root);
+      current = current->children[current->children.size() - 1];
+    }
+    
+    //add selection root
+    current->children.push_back(selection_root);
+    current = current->children[current->children.size() - 1];
+
+    //add cross_join_root
+    current->children.push_back(cross_join_root);
+
     //return root
-    return lqt_root;
+    return projection_root;
+  }
+
+  static LQueryTreeNode* createDupRemove(ParseTreeNode* pt_root) {
+    if(pt_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL)
+      return new LQueryTreeNode(LQT_NODE_TYPE::DUP_REMOVE);
+    return nullptr;
   }
 
   static LQueryTreeNode* createProjection(ParseTreeNode* pt_root) {
