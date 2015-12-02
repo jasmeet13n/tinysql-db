@@ -387,6 +387,11 @@ public:
   }
 
   bool processQuery(std::string& query) {
+    disk->resetDiskIOs();
+    disk->resetDiskTimer();
+
+    bool result = false;
+
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);
     if (root == nullptr) {
@@ -394,17 +399,20 @@ public:
     }
 
     if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
-      return processCreateTableStatement(root);
+      result = processCreateTableStatement(root);
     } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
-      return processDropTableStatement(root);
+      result = processDropTableStatement(root);
     } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
-      return processInsertStatement(root);
+      result = processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
-      return processSelectStatement(root);
+      result = processSelectStatement(root);
     } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
-      return processDeleteStatement(root);
+      result = processDeleteStatement(root);
     }
-    return false;
+
+    std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
+    std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+    return result;
   }
 };
 
