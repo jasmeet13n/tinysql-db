@@ -435,22 +435,25 @@ public:
     return 0;
   }
 
-  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge, ParseTreeNode* postFixExpr, bool storeOutput) {
+  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge,
+      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput) {
 
     return nullptr;
   }
 
-  Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput) {
+  Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2,
+      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput) {
 
     return nullptr;
   }
 
-  Relation* crossJoinWithCondition(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput = false) {
+  Relation* crossJoinWithCondition(std::string& r1, std::string& r2,
+      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput = false) {
     // Check if one of the relation can fit in memory
     if (true) {
-      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, storeOutput);
+      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, projList, storeOutput);
     } else {
-      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, storeOutput);
+      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, projList, storeOutput);
     }
     return nullptr;
   }
