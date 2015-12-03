@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 CREATE TABLE test (id INT, name STR20, status STR20)
 INSERT INTO test (id, name, status) VALUES (20, "Jasmeet Singh", "Hello World")
 INSERT INTO test (id, name, status) VALUES (15, "East Singh", "Hello What World")
@@ -13,8 +12,6 @@ SELECT * FROM test WHERE NOT id > 3
 CREATE TABLE test2 (id INT, name STR20, status STR20)
 INSERT INTO test2(id, name, status) SELECT id, name, status FROM test
 SELECT * FROM test2
-=======
->>>>>>> 3b0f3622941c6dd8ae11bab3da5487ce04892aff
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 98, "C")
