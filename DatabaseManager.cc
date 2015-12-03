@@ -386,6 +386,26 @@ public:
     return new_relation;
   }
 
+  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge, ParseTreeNode* postFixExpr, bool storeOutput) {
+
+    return nullptr;
+  }
+
+  Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput) {
+
+    return nullptr;
+  }
+
+  Relation* crossJoinWithCondition(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput = false) {
+    // Check if one of the relation can fit in memory
+    if (true) {
+      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, storeOutput);
+    } else {
+      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, storeOutput);
+    }
+    return nullptr;
+  }
+
   bool processQuery(std::string& query) {
     disk->resetDiskIOs();
     disk->resetDiskTimer();
