@@ -386,6 +386,7 @@ public:
     return new_relation;
   }
 
+<<<<<<< HEAD
   // Assume no holes in mem_blocks [Buble Sort]
   void sortTuples(std::vector<int> mem_block_indices, string column_name, string relation_name) {
     int blocks = mem_block_indices.size();
@@ -434,7 +435,32 @@ public:
     return 0;
   }
 
+  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge, ParseTreeNode* postFixExpr, bool storeOutput) {
+
+    return nullptr;
+  }
+
+  Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput) {
+
+    return nullptr;
+  }
+
+  Relation* crossJoinWithCondition(std::string& r1, std::string& r2, ParseTreeNode* postFixExpr, bool storeOutput = false) {
+    // Check if one of the relation can fit in memory
+    if (true) {
+      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, storeOutput);
+    } else {
+      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, storeOutput);
+    }
+    return nullptr;
+  }
+
   bool processQuery(std::string& query) {
+    disk->resetDiskIOs();
+    disk->resetDiskTimer();
+
+    bool result = false;
+
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);
     if (root == nullptr) {
@@ -442,17 +468,20 @@ public:
     }
 
     if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
-      return processCreateTableStatement(root);
+      result = processCreateTableStatement(root);
     } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
-      return processDropTableStatement(root);
+      result = processDropTableStatement(root);
     } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
-      return processInsertStatement(root);
+      result = processInsertStatement(root);
     } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
-      return processSelectStatement(root);
+      result = processSelectStatement(root);
     } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
-      return processDeleteStatement(root);
+      result = processDeleteStatement(root);
     }
-    return false;
+
+    std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
+    std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+    return result;
   }
 };
 
