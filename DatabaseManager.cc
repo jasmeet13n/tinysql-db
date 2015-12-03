@@ -569,13 +569,6 @@ public:
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
-      if(index+1 <= root->children.size()) {
-        int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
-        if(root->children.size() > order_index) {
-          
-          return true;
-        }
-      }
       return processSelectSingleTable(root, tuples, true);
     }
     else {
