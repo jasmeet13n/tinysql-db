@@ -386,6 +386,54 @@ public:
     return new_relation;
   }
 
+  // Assume no holes in mem_blocks [Buble Sort]
+  void sortTuples(std::vector<int> mem_block_indices, string column_name, string relation_name) {
+    int blocks = mem_block_indices.size();
+    int tuples_per_block = (mem->getBlock(mem_block_indices[0]))->getNumTuples(); //max tuples per block
+    int j = 0;
+    int n = (blocks - 1) * tuples_per_block;
+    n = n + (mem->getBlock(mem_block_indices[mem_block_indices.size() - 1]))->getNumTuples();
+    bool swapped = true;
+    Relation* rel_ptr = schema_manager.getRelation(relation_name);
+    Schema s = rel_ptr->getSchema();
+
+    while(swapped) {
+      swapped = false;
+      j++;
+      for(int i =  0; i < n - 1 - j; i++) {
+        int block_num_1 = i / tuples_per_block;
+        int block_num_2 = (i + 1) / tuples_per_block;
+        Block* block1 = mem->getBlock(block_num_1);
+        Block* block2 = mem->getBlock(block_num_2);
+        int tuple1_offset = i % tuples_per_block;
+        int tuple2_offset = (i + 1) % tuples_per_block;
+        Field field1 = (block1->getTuple(tuple2_offset)).getField(column_name);
+        Field field2 = (block2->getTuple(tuple2_offset)).getField(column_name);
+        if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
+          Tuple temp = (block1->getTuple(tuple1_offset)).getField(column_name);
+          block1->setTuple(tuple1_offset, block2->getTuple(tuple2_offset));
+          block2->setTuple(tuple2_offset, temp);
+          swapped = true;
+        }
+      }
+    }
+  }
+
+  int compareFields(enum FIELD_TYPE f, union Field& field1, union Field& field2) {
+    if(f == INT) {
+      if(field1.integer > field2.integer)
+        return 1;
+      else if(field1.integer < field2.integer)
+        return -1;
+      return 0;
+    }
+    if(*field1.str > *field2.str)
+      return 1;
+    else if(*field1.str < *field2.str)
+      return -1;
+    return 0;
+  }
+
   bool processQuery(std::string& query) {
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query);
