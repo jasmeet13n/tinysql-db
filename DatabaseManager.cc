@@ -154,8 +154,7 @@ public:
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
       return processSelectSingleTable(root, tuples, true);
-    }
-    else {
+    } else {
       // make logical query plan
       LQueryTreeNode* lqt_root = Utils::createLogicalQueryTree(root);
     }
