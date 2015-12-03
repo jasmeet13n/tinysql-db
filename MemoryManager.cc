@@ -27,6 +27,10 @@ public:
     }
   }
 
+  int numFreeBlocks() {
+    return freeBlocks.size();
+  }
+
   int getFreeBlockIndex() {
     if (!freeBlocks.empty()) {
       int top = freeBlocks.top();
@@ -53,7 +57,14 @@ public:
     return true;
   }
 
+  bool getAllFreeBlockIndices(vector<int>& ans) {
+    return getNFreeBlockIndices(ans, numFreeBlocks());
+  }
+
   void releaseBlock(int i) {
+    if (i == -1) {
+      return;
+    }
     freeBlocks.push(i);
   }
 
