@@ -598,14 +598,120 @@ public:
 
   Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2,
     ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+    Relation* small = schema_manager.getRelation(r1);
+    Relation* large = schema_manager.getRelation(r2);
+    int small_n = small->getNumOfBlocks();
+    int large_n = large->getNumOfBlocks();
 
+    //create new schema with projection list
+    std::unordered_map<int, int> small_to_new;
+    std::unordered_map<int, int> large_to_new;
+    Schema new_schema = createCommonSchema(small, large, projListMap, small_to_new, large_to_new);
+
+    //create new relation
+    std::string rNew = r1 + "_" + r2;
+    Relation* new_relation = schema_manager.createRelation(rNew, new_schema);
+
+    int small_mem_block_index = mManager.getFreeBlockIndex();
+    if(small_mem_block_index == -1)
+          return nullptr;
+
+    int large_mem_block_index = mManager.getFreeBlockIndex();
+    if(large_mem_block_index == -1)
+      return nullptr;
+
+    //create condition evaluator with postfix expression and temp relation if not null postfix
+    ConditionEvaluator eval;
+
+    if(postFixExpr != nullptr)
+      eval.initialize(postFixExpr, new_relation);
+
+    if(!storeOutput) {
+      printFieldNames(new_schema);
+    }
+
+    for(int i = 0; i < large_n; i++) {
+      large->getBlock(i, large_mem_block_index);
+      Block* large_mem_block = mem->getBlock(large_mem_block_index);
+      std::vector<Tuple> large_tuples = large_mem_block->getTuples();
+      // for each tuple in block
+      for(int t1 = 0; t1 < large_tuples.size(); t1++) {
+        if (large_tuples[t1].isNull()) {
+          continue;
+        }
+          // for small_n blocks in memory
+        for(int j = 0; j < small_n; j++) {
+          small->getBlock(j, small_mem_block_index);
+          Block* small_mem_block = mem->getBlock(small_mem_block_index);
+          std::vector<Tuple> small_tuples = small_mem_block->getTuples();
+            // for each tuple in block
+          for(int t2 = 0; t2 < small_tuples.size(); t2++) {
+            if (small_tuples[t2].isNull()) {
+              continue;
+            }
+
+            Tuple new_tuple = new_relation->createTuple();
+
+            for(unordered_map<int, int>::iterator it = small_to_new.begin(); it != small_to_new.end(); ++it) {
+              int old_off = (*it).first;
+              int new_off = (*it).second;
+              FIELD_TYPE f = new_schema.getFieldType(new_off);
+              if (f == INT) {
+                new_tuple.setField(new_off, small_tuples[t2].getField(old_off).integer);
+              } else {
+                new_tuple.setField(new_off, *(small_tuples[t2].getField(old_off).str));
+              }
+            }
+
+            for(unordered_map<int, int>::iterator it = large_to_new.begin(); it != large_to_new.end(); ++it) {
+              int old_off = (*it).first;
+              int new_off = (*it).second;
+              FIELD_TYPE f = new_schema.getFieldType(new_off);
+              if (f == INT) {
+                new_tuple.setField(new_off, large_tuples[t1].getField(old_off).integer);
+              } else {
+                new_tuple.setField(new_off, *(large_tuples[t1].getField(old_off).str));
+              }
+            }
+
+            int free_block_index = mManager.getFreeBlockIndex();
+            if(free_block_index == -1)
+              return nullptr;
+
+            bool ans = true;
+            if(postFixExpr != nullptr)
+              ans = eval.evaluate(new_tuple);
+
+            if (ans) {
+              if (storeOutput) {
+                appendTupleToRelation(new_relation, free_block_index, new_tuple);
+              } else {
+                std::cout << new_tuple << std::endl;
+              }
+            }
+
+            mManager.releaseBlock(free_block_index);
+          }
+        }
+      }
+    }
+
+    //memblocks release
+
+    mManager.releaseBlock(large_mem_block_index);
+    mManager.releaseBlock(small_mem_block_index);
+
+    if(storeOutput) {
+      temp_relations.push_back(rNew);
+      return new_relation;
+    }
     return nullptr;
   }
 
   Relation* crossJoinWithCondition(std::string& r1, std::string& r2,
     ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput = false) {
     // Check if one of the relation can fit in memory
-    if (true) {
+    if (true == false) {
       return crossJoinWithConditionOnePass(r1, r2, postFixExpr, projListMap, storeOutput);
     } else {
       return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, projListMap, storeOutput);
