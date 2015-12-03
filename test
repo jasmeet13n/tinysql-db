@@ -4,6 +4,12 @@ INSERT INTO test (id, name, status) VALUES (15, "East Singh", "Hello What World"
 INSERT INTO test (id, name, status) VALUES (16, "West Jasmeet Singh", "Hello 2  World")
 INSERT INTO test (id, name, status) VALUES (10, "North Jasmeet Singh", "Hello 3  World")
 INSERT INTO test (id, name, status) VALUES (11, "South Jasmeet", "Hello 4  World")
+SELECT status, name FROM test
+SELECT * FROM test
+SELECT * FROM test WHERE NOT id > 3
+CREATE TABLE test2 (id INT, name STR20, status STR20)
+INSERT INTO test2(id, name, status) SELECT id, name, status FROM test
+SELECT * FROM test2
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 98, "C")
@@ -41,6 +47,7 @@ INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 SELECT * FROM course, course2 WHERE course.grade = course2.grade
+SELECT * FROM course_course2
 exit
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (17, 100, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 99, "B")
