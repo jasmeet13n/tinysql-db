@@ -23,23 +23,24 @@ private:
 	Disk* disk;
 	SchemaManager schema_manager;
 	MemoryManager mManager;
+  std::vector<std::string> temp_relations;
 
-	bool appendTupleToRelation(Relation* relation_ptr, int memory_block_index, Tuple& tuple) {
-	  Block* block_ptr;
-	  if (relation_ptr->getNumOfBlocks() == 0) {
+  bool appendTupleToRelation(Relation* relation_ptr, int memory_block_index, Tuple& tuple) {
+   Block* block_ptr;
+   if (relation_ptr->getNumOfBlocks() == 0) {
 	    //cout << "The relation is empty" << endl;
 	    //cout << "Get the handle to the memory block " << memory_block_index << " and clear it" << endl;
-	    block_ptr = mem->getBlock(memory_block_index);
+     block_ptr = mem->getBlock(memory_block_index);
 	    block_ptr->clear(); //clear the block
 	    block_ptr->appendTuple(tuple); // append the tuple
 	    //cout << "Write to the first block of the relation" << endl;
 	    relation_ptr->setBlock(relation_ptr->getNumOfBlocks(), memory_block_index);
 	  } else {
 	    //cout << "Read the last block of the relation into memory block: " << memory_block_index << endl;
-	    relation_ptr->getBlock(relation_ptr->getNumOfBlocks() - 1, memory_block_index);
-	    block_ptr = mem->getBlock(memory_block_index);
+     relation_ptr->getBlock(relation_ptr->getNumOfBlocks() - 1, memory_block_index);
+     block_ptr = mem->getBlock(memory_block_index);
 
-	    if (block_ptr->isFull()) {
+     if (block_ptr->isFull()) {
 	      //cout << "(The block is full: Clear the memory block and append the tuple)" << endl;
 	      block_ptr->clear(); //clear the block
 	      block_ptr->appendTuple(tuple); // append the tuple
@@ -149,23 +150,10 @@ public:
     return insertTuplesIntoTable(table_name, insert_tuples);
   }
 
-  bool processSelectStatement(ParseTreeNode* root) {
-    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
-    if(root->children[index]->children.size() == 1) {
-      std::vector<Tuple> tuples;
-      return processSelectSingleTable(root, tuples, true);
-    }
-    else {
-      // make logical query plan
-      LQueryTreeNode* lqt_root = Utils::createLogicalQueryTree(root);
-    }
-    return false;
-  }
-
   bool processSelectSingleTable(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
     //Only for single table in table-list
     std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
-     ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
+    ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
     Relation* r = schema_manager.getRelation(table_name);
     if(r == nullptr)
       return false;
@@ -208,7 +196,7 @@ public:
     ConditionEvaluator eval;
     if (root->children.size() > 5)
       eval.initialize(root->children[5], r);
-  
+
     for(int i = 0; i < r->getNumOfBlocks(); i++) {
       r->getBlock(i, free_block_index);
       Block* block_ptr = mem->getBlock(free_block_index);
@@ -331,6 +319,8 @@ public:
 
     // Join operation
     // for large_n blocks
+
+
     for(int i = 0; i < large_n; i++) { 
       large->getBlock(i, large_mem_block_index);
       Block* large_mem_block = mem->getBlock(large_mem_block_index);
@@ -410,7 +400,7 @@ public:
         Field field1 = (block1->getTuple(tuple2_offset)).getField(column_name);
         Field field2 = (block2->getTuple(tuple2_offset)).getField(column_name);
         if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
-          Tuple temp = (block1->getTuple(tuple1_offset)).getField(column_name);
+          Tuple temp = (block1->getTuple(tuple1_offset));
           block1->setTuple(tuple1_offset, block2->getTuple(tuple2_offset));
           block2->setTuple(tuple2_offset, temp);
           swapped = true;
@@ -434,27 +424,228 @@ public:
     return 0;
   }
 
-  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge,
-      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput) {
+  Schema createCommonSchema(Relation* small, Relation* large, std::unordered_map<std::string, bool>& projListMap,
+    std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
+    std::string small_relation_name = small->getRelationName();
+    std::string large_relation_name = large->getRelationName();
+    Schema small_schema = schema_manager.getSchema(small_relation_name);
+    Schema large_schema = schema_manager.getSchema(large_relation_name);
+    std::vector<std::string> small_column_names = small_schema.getFieldNames();
+    std::vector<enum FIELD_TYPE> small_data_types = small_schema.getFieldTypes();
+    std::vector<std::string> large_column_names = large_schema.getFieldNames();
+    std::vector<enum FIELD_TYPE> large_data_types = large_schema.getFieldTypes();
 
+    for(int  i = 0; i < small_column_names.size(); i++)
+      small_column_names[i] = small_relation_name + "." + small_column_names[i];
+
+    for(int  i = 0; i < large_column_names.size(); i++)
+      large_column_names[i] = large_relation_name + "." + large_column_names[i];
+
+    std::vector<std::string> new_column_names;
+    std::vector<enum FIELD_TYPE> new_data_types;
+
+    bool starPresent = false;
+    if (projListMap.find("*") != projListMap.end())
+      starPresent = true;
+
+
+    for(int i = 0; i < small_column_names.size(); i++) {
+      if(starPresent || projListMap.find(small_column_names[i]) != projListMap.end()) {
+        new_column_names.push_back(small_column_names[i]);
+        new_data_types.push_back(small_data_types[i]);
+        small_to_new[i] = new_column_names.size() - 1;
+      }
+    }
+
+    for(int i = 0; i < large_column_names.size(); i++) {
+      if(starPresent || projListMap.find(large_column_names[i]) != projListMap.end()) {
+        new_column_names.push_back(large_column_names[i]);
+        new_data_types.push_back(large_data_types[i]);
+        large_to_new[i] = new_column_names.size() - 1;
+      }
+    }
+
+    Schema new_schema(new_column_names, new_data_types);
+    return new_schema;
+  }
+
+  void printFieldNames(Schema schema) {
+    std::vector<std::string> field_names;
+    field_names = schema.getFieldNames();
+    for(int i = 0; i < field_names.size(); i++) {
+      std::cout << field_names[i] << "\t";
+    }
+    std::cout << std::endl;
+  }
+
+  Relation* crossJoinWithConditionOnePass(std::string& rSmall, std::string& rLarge,
+    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+    Relation* small = schema_manager.getRelation(rSmall);
+    Relation* large = schema_manager.getRelation(rLarge);
+    int small_n = small->getNumOfBlocks();
+    int large_n = large->getNumOfBlocks();
+
+    //create new schema with projection list
+    std::unordered_map<int, int> small_to_new;
+    std::unordered_map<int, int> large_to_new;
+    Schema new_schema = createCommonSchema(small, large, projListMap, small_to_new, large_to_new);
+
+    //create new relation
+    std::string rNew = rSmall + "_" + rLarge;
+    Relation* new_relation = schema_manager.createRelation(rNew, new_schema);
+
+    // Get small_n free blocks from main memory
+    std::vector<int> small_block_indices;
+    if(!mManager.getNFreeBlockIndices(small_block_indices, small_n)) {
+      return nullptr;
+    }
+
+    // Copy blocks from small relation to free_blocks in memory
+    for(int i = 0; i < small_n; i++) {
+      small->getBlock(i, small_block_indices[i]);
+    }
+
+    int large_mem_block_index = mManager.getFreeBlockIndex();
+    if(large_mem_block_index == -1)
+      return nullptr;
+
+    //create condition evaluator with postfix expression and temp relation if not null postfix
+    ConditionEvaluator eval;
+
+    if(postFixExpr != nullptr)
+      eval.initialize(postFixExpr, new_relation);
+
+    if(!storeOutput) {
+      printFieldNames(new_schema);
+    }
+
+    for(int i = 0; i < large_n; i++) { 
+      large->getBlock(i, large_mem_block_index);
+      Block* large_mem_block = mem->getBlock(large_mem_block_index);
+      std::vector<Tuple> large_tuples = large_mem_block->getTuples();
+      // for each tuple in block
+      for(int t1 = 0; t1 < large_tuples.size(); t1++) {
+        if (large_tuples[t1].isNull()) {
+          continue;
+        }
+          // for small_n blocks in memory
+        for(int j = 0; j < small_n; j++) { 
+          Block* small_mem_block = mem->getBlock(small_block_indices[j]);
+          std::vector<Tuple> small_tuples = small_mem_block->getTuples();
+            // for each tuple in block
+          for(int t2 = 0; t2 < small_tuples.size(); t2++) {
+            if (small_tuples[t2].isNull()) {
+              continue;
+            }
+
+            Tuple new_tuple = new_relation->createTuple();
+
+            for(unordered_map<int, int>::iterator it = small_to_new.begin(); it != small_to_new.end(); ++it) {
+              int old_off = (*it).first;
+              int new_off = (*it).second;
+              FIELD_TYPE f = new_schema.getFieldType(new_off);
+              if (f == INT) {
+                new_tuple.setField(new_off, small_tuples[t2].getField(old_off).integer);
+              } else {
+                new_tuple.setField(new_off, *(small_tuples[t2].getField(old_off).str));
+              }
+            }
+
+            for(unordered_map<int, int>::iterator it = large_to_new.begin(); it != large_to_new.end(); ++it) {
+              int old_off = (*it).first;
+              int new_off = (*it).second;
+              FIELD_TYPE f = new_schema.getFieldType(new_off);
+              if (f == INT) {
+                new_tuple.setField(new_off, large_tuples[t1].getField(old_off).integer);
+              } else {
+                new_tuple.setField(new_off, *(large_tuples[t1].getField(old_off).str));
+              }
+            }
+
+            int free_block_index = mManager.getFreeBlockIndex();
+            if(free_block_index == -1)
+              return nullptr;
+
+            bool ans = true;
+            if(postFixExpr != nullptr)
+              ans = eval.evaluate(new_tuple);
+
+            if (ans) {
+              if (storeOutput) {
+                appendTupleToRelation(new_relation, free_block_index, new_tuple);
+              } else {
+                std::cout << new_tuple << std::endl;
+              }
+            }
+
+            mManager.releaseBlock(free_block_index);
+          }
+        }  
+      }
+    }
+
+    //memblocks release
+
+    mManager.releaseBlock(large_mem_block_index);
+    mManager.releaseNBlocks(small_block_indices);
+
+    if(storeOutput) {
+      temp_relations.push_back(rNew);
+      return new_relation;
+    }
     return nullptr;
   }
 
   Relation* crossJoinWithConditionTwoPass(std::string& r1, std::string& r2,
-      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput) {
+    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
 
     return nullptr;
   }
 
   Relation* crossJoinWithCondition(std::string& r1, std::string& r2,
-      ParseTreeNode* postFixExpr, std::vector<std::string>& projList, bool storeOutput = false) {
+    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput = false) {
     // Check if one of the relation can fit in memory
     if (true) {
-      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, projList, storeOutput);
+      return crossJoinWithConditionOnePass(r1, r2, postFixExpr, projListMap, storeOutput);
     } else {
-      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, projList, storeOutput);
+      return crossJoinWithConditionTwoPass(r1, r2, postFixExpr, projListMap, storeOutput);
     }
     return nullptr;
+  }
+
+  bool processSelectMultiTable(ParseTreeNode* root) {
+    // create projection list
+
+    // Break Where condition if only AND
+
+    // For r1, r2 in relation_list
+    // Extract WhereCondition for these two relations
+    // if no more relations process with storeOutput = false
+    // if more relations process with storeOutput = true
+        // then r1 = newRelation
+        // r2 = nextRelation
+
+    // Drop temporary relations // create function for this
+
+  }
+
+  bool processSelectStatement(ParseTreeNode* root) {
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    if(root->children[index]->children.size() == 1) {
+      std::vector<Tuple> tuples;
+      return processSelectSingleTable(root, tuples, true);
+    }
+    else {
+      Relation* newRelation;
+      std::string r1 = "course2";
+      std::string r2 = "course";
+
+      unordered_map<std::string, bool> m;
+      m["*"] = true;
+      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, false);
+      // make logical query plan
+    }
+    return false;
   }
 
   bool processQuery(std::string& query) {

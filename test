@@ -12,10 +12,16 @@ insert into test2(id, name, status) SELECT id, name, status FROM test
 SELECT * FROM test2
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 100, 98, "C")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 98, "C")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 69, 64, "C")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (15, 100, 50, 90, "E")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (15, 100, 99, 100, "E")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 100, 50, 90, "E")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (5, 100, 99, 100, "E")
+CREATE TABLE course2 (sid INT, exam INT, grade STR20)
+INSERT INTO course2 (sid, exam, grade) VALUES (11, 100, "A")
+INSERT INTO course2 (sid, exam, grade) VALUES (12, 25, "E")
+INSERT INTO course2 (sid, exam, grade) VALUES (13, 0, "A")
+SELECT * FROM course, course2 WHERE course.grade = course2.grade
+exit
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (17, 100, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 99, "B")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 100, 100, 97, "D")
