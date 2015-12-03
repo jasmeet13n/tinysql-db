@@ -386,7 +386,6 @@ public:
     return new_relation;
   }
 
-<<<<<<< HEAD
   // Assume no holes in mem_blocks [Buble Sort]
   void sortTuples(std::vector<int> mem_block_indices, string column_name, string relation_name) {
     int blocks = mem_block_indices.size();
