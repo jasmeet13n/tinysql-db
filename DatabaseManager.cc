@@ -585,7 +585,8 @@ public:
 
       unordered_map<std::string, bool> m;
       m["*"] = true;
-      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, false);
+      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, true);
+      std::cout << newRelation << std::endl;
       // make logical query plan
     }
     return false;
