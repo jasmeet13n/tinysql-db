@@ -56,6 +56,18 @@ private:
 	  return true;
 	}
 
+  bool appendTupleToMemBlock(int memory_block_index, Tuple& tuple) {
+    Block* block_ptr;
+    block_ptr = mem->getBlock(memory_block_index);
+    if(block_ptr->isFull()) {
+      return false;
+    }
+    else {
+      block_ptr->appendTuple(tuple);
+    }
+    return true;
+  }
+
 public:
 	DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) {
     this->mem = m;
@@ -152,8 +164,8 @@ public:
 
   bool processSelectSingleTable(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
     //Only for single table in table-list
-    std::string table_name = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL\
-    ? root->children[4]->children[0]->value : root->children[3]->children[0]->value;
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    std::string table_name = root->children[index]->children[0]->value;
     Relation* r = schema_manager.getRelation(table_name);
     if(r == nullptr)
       return false;
@@ -194,8 +206,8 @@ public:
     }
 
     ConditionEvaluator eval;
-    if (root->children.size() > 5)
-      eval.initialize(root->children[5], r);
+    if (root->children.size() > 5 && root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL)
+      eval.initialize(root->children[index+2], r);
 
     for(int i = 0; i < r->getNumOfBlocks(); i++) {
       r->getBlock(i, free_block_index);
@@ -203,7 +215,7 @@ public:
       std::vector<Tuple> tuples = block_ptr->getTuples();
 
       for (int j = 0; j < tuples.size(); ++j) {
-        if (root->children.size() > 5) {
+        if (root->children.size() > 5 && root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL) {
           bool ans = eval.evaluate(tuples[j]);
           if (ans == false) {
             continue;
@@ -376,8 +388,29 @@ public:
     return new_relation;
   }
 
+  void sortOnePass(string relation_name, string column_name) {
+    Relation* rel_ptr = schema_manager.getRelation(relation_name);
+    int nBlocks = rel_ptr->getNumOfBlocks();
+    std::vector<int> mem_block_indices;
+    if(!mManager.getNFreeBlockIndices(mem_block_indices, nBlocks)) {
+      return;
+    }
+    for(int i = 0; i < nBlocks; i++) {
+      rel_ptr->getBlock(i, mem_block_indices[i]);
+    }
+    sortTuples(mem_block_indices, relation_name, column_name);
+    printFieldNames(rel_ptr->getSchema());
+    for(int i = 0; i < nBlocks; i++) {
+      Block* block = mem->getBlock(mem_block_indices[i]);
+      std::vector<Tuple> tuples = block->getTuples();
+      for(int j = 0; j < tuples.size(); j++) {
+        std::cout << tuples[j] << std::endl;
+      }
+    }
+  }
+
   // Assume no holes in mem_blocks [Buble Sort]
-  void sortTuples(std::vector<int> mem_block_indices, string column_name, string relation_name) {
+  void sortTuples(std::vector<int> mem_block_indices, string relation_name, string column_name) {
     int blocks = mem_block_indices.size();
     int tuples_per_block = (mem->getBlock(mem_block_indices[0]))->getNumTuples(); //max tuples per block
     int j = 0;
@@ -400,7 +433,7 @@ public:
         Field field1 = (block1->getTuple(tuple2_offset)).getField(column_name);
         Field field2 = (block2->getTuple(tuple2_offset)).getField(column_name);
         if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
-          Tuple temp = (block1->getTuple(tuple1_offset));
+          Tuple temp = block1->getTuple(tuple1_offset);
           block1->setTuple(tuple1_offset, block2->getTuple(tuple2_offset));
           block2->setTuple(tuple2_offset, temp);
           swapped = true;
@@ -739,6 +772,13 @@ public:
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
+      if(index+1 <= root->children.size()) {
+        int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
+        if(root->children.size() > order_index) {
+          
+          return true;
+        }
+      }
       return processSelectSingleTable(root, tuples, true);
     }
     else {

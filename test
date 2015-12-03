@@ -1,14 +1,16 @@
-create table test (id INT, name STR20, status STR20)
-insert into test (id, name, status) VALUES (1, "Jasmeet Singh", "Hello World")
-insert into test (id, name, status) VALUES (2, "East Singh", "Hello What World")
-insert into test (id, name, status) VALUES (3, "West Jasmeet Singh", "Hello 2  World")
-insert into test (id, name, status) VALUES (4, "North Jasmeet Singh", "Hello 3  World")
-insert into test (id, name, status) VALUES (5, "South Jasmeet", "Hello 4  World")
+CREATE TABLE test (id INT, name STR20, status STR20)
+INSERT INTO test (id, name, status) VALUES (20, "Jasmeet Singh", "Hello World")
+INSERT INTO test (id, name, status) VALUES (15, "East Singh", "Hello What World")
+INSERT INTO test (id, name, status) VALUES (16, "West Jasmeet Singh", "Hello 2  World")
+INSERT INTO test (id, name, status) VALUES (10, "North Jasmeet Singh", "Hello 3  World")
+INSERT INTO test (id, name, status) VALUES (11, "South Jasmeet", "Hello 4  World")
+SELECT * FROM test ORDER BY id
+exit
 SELECT status, name FROM test
 SELECT * FROM test
 SELECT * FROM test WHERE NOT id > 3
 CREATE TABLE test2 (id INT, name STR20, status STR20)
-insert into test2(id, name, status) SELECT id, name, status FROM test
+INSERT INTO test2(id, name, status) SELECT id, name, status FROM test
 SELECT * FROM test2
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
