@@ -33,7 +33,7 @@ main.o: main.cc
 	$(cc) -c main.cc
 
 main: main.o StorageManager.o DatabaseManager.o
-	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o -lgtest -lpthread
+	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o
 	rm *.o	
 	
 clean:

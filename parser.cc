@@ -5,8 +5,6 @@
 #include <string>
 #include <stack>
 #include <algorithm>
-#include <gtest/gtest.h>
-#include <boost/algorithm/string.hpp>
 
 #include "parse_tree.cc"
 #include "tokenizer.cc"
@@ -17,10 +15,8 @@ private:
     if (tokens.size() < 2) {
       return false;
     }
-    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
-    if (t0 == "CREATE") {
-      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
-      if (t1 == "TABLE") {
+    if (tokens[0] == "CREATE") {
+      if (tokens[1] == "TABLE") {
         return true;
       }
     }
@@ -31,10 +27,8 @@ private:
     if (tokens.size() != 3) {
       return false;
     }
-    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
-    if (t0 == "DROP") {
-      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
-      if (t1 == "TABLE") {
+    if (tokens[0] == "DROP") {
+      if (tokens[1] == "TABLE") {
         return true;
       }
     }
@@ -45,10 +39,8 @@ private:
     if (tokens.size() < 3) {
       return false;
     }
-    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
-    if (t0 == "INSERT") {
-      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
-      if (t1 == "INTO") {
+    if (tokens[0] == "INSERT") {
+      if (tokens[1] == "INTO") {
         return true;
       }
     }
@@ -59,8 +51,7 @@ private:
     if (tokens.size() < 3) {
       return false;
     }
-    std::string t0 = boost::to_upper_copy<std::string>(tokens[start_index + 0]);
-    if (t0 == "SELECT") {
+    if (tokens[start_index] == "SELECT") {
       return true;
     }
     return false;
@@ -70,10 +61,8 @@ private:
     if (tokens.size() < 3) {
       return false;
     }
-    std::string t0 = boost::to_upper_copy<std::string>(tokens[0]);
-    if (t0 == "DELETE") {
-      std::string t1 = boost::to_upper_copy<std::string>(tokens[1]);
-      if (t1 == "FROM") {
+    if (tokens[0] == "DELETE") {
+      if (tokens[1] == "FROM") {
         return true;
       }
     }
@@ -126,9 +115,6 @@ private:
 
   static ParseTreeNode* getInsertTuples(
       std::vector<std::string>& tokens, int start_index) {
-    std::string values_literal = boost::to_upper_copy<std::string>(tokens[start_index]);
-    // if not values get select statement
-
     ParseTreeNode* insert_tuples = new ParseTreeNode(NODE_TYPE::INSERT_TUPLES, "insert_tuples");
 
     if(tokens[start_index] == "VALUES") {
