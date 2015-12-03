@@ -626,7 +626,7 @@ public:
         // r2 = nextRelation
 
     // Drop temporary relations // create function for this
-
+    return false;
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
