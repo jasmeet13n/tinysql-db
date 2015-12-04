@@ -4,6 +4,8 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
+#include <list>
 
 #include "./StorageManager/Block.h"
 #include "./StorageManager/Config.h"
@@ -27,6 +29,7 @@ private:
   SchemaManager schema_manager;
   MemoryManager mManager;
   std::vector<std::string> temp_relations;
+  std::vector<std::string> tokens;
 
   bool appendTupleToRelation(Relation* relation_ptr, int memory_block_index, Tuple& tuple) {
     Block* block_ptr;
@@ -370,7 +373,7 @@ public:
   }
 
   Schema createCommonSchema(Relation* small, Relation* large, std::unordered_map<std::string, bool>& projListMap,
-    std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
+      std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
     std::string small_relation_name = small->getRelationName();
     std::string large_relation_name = large->getRelationName();
     Schema small_schema = schema_manager.getSchema(small_relation_name);
@@ -424,7 +427,7 @@ public:
   }
 
   Relation* crossJoinWithCondition(std::string rSmall, std::string rLarge,
-    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+      ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
     Relation* small = schema_manager.getRelation(rSmall);
     Relation* large = schema_manager.getRelation(rLarge);
     int small_n = small->getNumOfBlocks();
@@ -471,7 +474,7 @@ public:
     if (num_small_in_mem <= 0) {
       return nullptr;
     }
-    //    int num_small_in_mem = 0;
+    // int num_small_in_mem = 0;
 
     std::cout << "Small Size: " << small_n << std::endl;
     std::cout << "Large Size: " << large_n << std::endl;
@@ -560,7 +563,7 @@ public:
       }
     }
 
-    if (!output_mem_block_ptr->isEmpty()) {
+    if (storeOutput && !(output_mem_block_ptr->isEmpty())) {
       new_relation->setBlock(new_relation->getNumOfBlocks(), output_mem_block_index);
       output_mem_block_ptr->clear();
     }
@@ -578,9 +581,212 @@ public:
   }
 
   bool processSelectMultiTable(ParseTreeNode* root) {
-    // create projection list
+    bool hasDistinct = hasDistinct = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? true : false;;
+    bool hasOrderBy = false;
+    bool hasDistOrSort = false;
+    int selectListIndex = hasDistinct ? 2 : 1;
 
-    // Break Where condition if only AND
+    bool hasWhereCondition = Utils::hasWhereCondition(root);
+    ParseTreeNode* whereConditionRoot = hasWhereCondition ? root->children[selectListIndex + 4] : nullptr;
+
+    std::vector<std::string> selectList;
+    Utils::getSelectList(root, selectList);
+
+    // create projection list
+    std::unordered_map<std::string, bool> selectListMap;
+    for (int i = 0; i < selectList.size(); ++i) {
+      selectListMap[selectList[i]] = true;
+    }
+
+    std::string sortColName;
+    if (hasWhereCondition) {
+      if (selectListIndex + 5 < root->children.size()) {
+        hasOrderBy = true;
+        sortColName = root->children[selectListIndex + 7]->value;
+      }
+    } else if (selectListIndex + 3 < root->children.size()) {
+      hasOrderBy = true;
+      sortColName = root->children[selectListIndex + 5]->value;
+    }
+
+    if (hasOrderBy) {
+      selectListMap[sortColName] = true;
+    }
+
+    std::list<ParseTreeNode*> whereConditions;
+
+    bool foundOrCondition = false;
+    if (hasWhereCondition) {
+      int whereStart = 0;
+      int whereEnd = tokens.size();
+      for (int i = 0; i < tokens.size(); ++i) {
+        if (tokens[i] == "WHERE") {
+          whereStart = i+1;
+          break;
+        }
+      }
+      if (tokens[tokens.size() - 3] == "ORDER") {
+        whereEnd -= 3;
+      }
+
+      for (int i = whereStart; i < whereEnd; ++i) {
+        if (tokens[i] == "OR") {
+          foundOrCondition = true;
+          break;
+        }
+      }
+
+      if (foundOrCondition) {
+        whereConditions.push_back(whereConditionRoot);
+      } else {
+        int curStart = whereStart;
+        for (int i = whereStart; i < whereEnd; ++i) {
+          if (tokens[i] == "AND") {
+            whereConditions.push_back(Parser::getPostfixNodePublic(tokens, curStart, i));
+            curStart = i + 1;
+          } else if (i == whereEnd - 1) {
+            whereConditions.push_back(Parser::getPostfixNodePublic(tokens, curStart, whereEnd));
+          }
+        }
+      }
+    }
+
+    if (hasDistinct || hasOrderBy) {
+      hasDistOrSort = true;
+    }
+
+    // Create a vector of relation list
+    std::vector<std::string> relationList;
+    Utils::getTableList(root, relationList);
+
+
+    std::unordered_map<std::string, Schema> relSchema;
+    for (int i = 0; i < relationList.size(); ++i) {
+      relSchema[relationList[i]] = schema_manager.getSchema(relationList[i]);
+    }
+
+    std::unordered_map<std::string, bool> allColumns;
+
+    for (int i = 0; i < relationList.size(); ++i) {
+      std::vector<std::string> fieldNames = relSchema[relationList[i]].getFieldNames();
+      for (int j = 0; j < fieldNames.size(); ++j) {
+        std::string col = relationList[i] + "." + fieldNames[j];
+        allColumns[col] = true;
+      }
+    }
+
+    for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
+      ParseTreeNode* root = (*it);
+      std::cout << "Print Current Tree--------->" << std::endl;
+      ParseTreeNode::printParseTree(root);
+      for (int i = 0; i < root->children.size(); ++i) {
+        std::string& val = root->children[i]->value;
+        if (allColumns.find(val) != allColumns.end()) {
+          root->children[i]->type = NODE_TYPE::POSTFIX_VARIABLE;
+        }
+      }
+    }
+
+    std::string rel1 = relationList[0];
+    std::unordered_map<std::string, bool> curColumns;
+    std::vector<std::string> fieldNames;
+
+    if (hasWhereCondition) {
+      fieldNames = relSchema[rel1].getFieldNames();
+      for (int j = 0; j < fieldNames.size(); ++j) {
+        std::string col = rel1 + "." + fieldNames[j];
+        curColumns[col] = true;
+      }
+    }
+
+    for (int i = 1; i < relationList.size(); ++i) {
+      std::string rel2 = relationList[i];
+
+      ParseTreeNode* curWhereConditionRoot = nullptr;
+
+      if (hasWhereCondition) {
+        fieldNames = relSchema[rel2].getFieldNames();
+        for (int j = 0; j < fieldNames.size(); ++j) {
+          std::string col = rel2 + "." + fieldNames[j];
+          curColumns[col] = true;
+        }
+
+        std::vector<ParseTreeNode*> curWhereConditions;
+        for (auto it = whereConditions.begin(); it != whereConditions.end();) {
+          ParseTreeNode* curRoot = (*it);
+          bool pushThis = true;
+          for (int j = 0; j < curRoot->children.size(); ++j) {
+            if (curRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
+              if (curColumns.find(curRoot->children[j]->value) == curColumns.end()) {
+                pushThis = false;
+                break;
+              }
+            }
+          }
+
+          if (pushThis) {
+            curWhereConditions.push_back(curRoot);
+            it = whereConditions.erase(it);
+          } else {
+            ++it;
+          }
+        }
+
+        if (curWhereConditions.size() > 0) {
+          cout << "greater than zero" << endl;
+          cout.flush();
+          curWhereConditionRoot = curWhereConditions[0];
+          for (int j = 1; j < curWhereConditions.size(); ++j) {
+            ParseTreeNode* curRoot = curWhereConditions[j];
+            for (int k = 0; k < curRoot->children.size(); ++k) {
+              curWhereConditionRoot->children.push_back(curRoot->children[k]);
+            }
+            curWhereConditionRoot->children.push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, "AND"));
+          }
+        }
+        ParseTreeNode::printParseTree(curWhereConditionRoot);
+      }
+
+      bool storeOutput = true;
+      if (i == relationList.size() - 1 && !hasDistOrSort) {
+        storeOutput = false;
+      }
+
+      std::unordered_map<std::string, bool> curProjListMap;
+      if (selectListMap.find("*") != selectListMap.end()) {
+        curProjListMap["*"] = true;
+      } else {
+        for (int j = 0; j < selectList.size(); ++j) {
+          if (curColumns.find(selectList[j]) != curColumns.end()) {
+            curProjListMap[selectList[j]] = true;
+          }
+        }
+        for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
+          ParseTreeNode* curRoot = (*it);
+          for (int j = 0; j < curRoot->children.size(); ++j) {
+            if (curRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
+              if (curColumns.find(curRoot->children[j]->value) != curColumns.end()) {
+                curProjListMap[curRoot->children[j]->value] = true;
+              }
+            }
+          }
+        }
+      }
+
+      Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curProjListMap, storeOutput);
+      std::cout << "Complete" << std::endl;
+
+      if (storeOutput) {
+        if (outputRelation == nullptr) {
+          return false;
+        }
+        rel1 = outputRelation->getRelationName();
+      }
+    }
+
+    if (hasDistOrSort) {
+      // sort
+    }
 
     // For r1, r2 in relation_list
     // Extract WhereCondition for these two relations
@@ -621,7 +827,7 @@ public:
             }
             mem_block_indices.push_back(current_block_index);
             Relation* temp_rel = sort(root->children[index]->children[0]->value, 
-              root->children[order_index + 2]->value, mem_block_indices);
+                root->children[order_index + 2]->value, mem_block_indices);
             for(int i = 0; i < mem_block_indices.size(); i++) {
               Block* block = mem->getBlock(mem_block_indices[i]);
               std::vector<Tuple> mem_tuples = block->getTuples();
@@ -634,15 +840,15 @@ public:
             // can't fit in main memory
             std::vector<int> mem_blocks;
             Relation* temp_rel = sort(root->children[index]->children[0]->value, 
-              root->children[order_index + 2]->value, mem_blocks);
+                root->children[order_index + 2]->value, mem_blocks);
             mManager.releaseNBlocks(mem_blocks);
           }
           return true;
         }
       }
       return processSelectSingleTable(root, tuples, true);
-    }
-    else {
+    } else {
+      return processSelectMultiTable(root);
       Relation* newRelation;
       std::string r1 = "course";
       std::string r2 = "course2";
@@ -656,7 +862,7 @@ public:
     return false;
   }
 
-  
+
 
   //main sort function
   Relation* sort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
@@ -818,7 +1024,7 @@ public:
     bool result = false;
 
     std::cout << "Q>"<< query << std::endl;
-    ParseTreeNode* root = Parser::parseQuery(query);
+    ParseTreeNode* root = Parser::parseQuery(query, tokens);
     if (root == nullptr) {
       return false;
     }

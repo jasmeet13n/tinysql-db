@@ -95,6 +95,7 @@ public:
       string& val = expression_tree_root->children[i]->value;
       if (field_map.find(val) != field_map.end()) {
         std::pair<int, FIELD_TYPE>& p = field_map[val];
+        //expression_tree_root->children[i]->type = NODE_TYPE::POSTFIX_VARIABLE;
         Factor f(p.second, -1, -1, val, p.first);
         postfix.push_back(f);
       } else {
@@ -102,6 +103,7 @@ public:
         if (Parser::isOperator(val)) {
           con = 0;
         }
+
         Factor f(STR20, con, -1, val, -1);
         postfix.push_back(f);
       }
