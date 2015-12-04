@@ -864,7 +864,124 @@ public:
     return false;
   }
 
+  //assuming tuples have same schema
+  bool equalTuples(Tuple tuple1, Tuple tuple2) {
+    Schema s = tuple1.getSchema();
+    std::vector<std::string> column_names = s.getFieldNames();
+    for(int i = 0; i < column_names.size(); i++) {
+      enum FIELD_TYPE f = s.getFieldType(column_names[i]);
+      if(f == INT) {
+        if(tuple1.getField(i).integer != tuple2.getField(i).integer)
+          return false;
+      }
+      else {
+        if(*tuple1.getField(i).str != *tuple2.getField(i).str)
+          return false;
+      }
+    }
+    return true;
+  }
 
+  //main removeDuplicates function
+  Relation* removeDuplicates(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    Relation* ret_rel;
+    //if(false) {
+    if(mem_block_indices.size() > 0) {
+      ret_rel = removeDuplicatesMemory(relation_name, column_name, mem_block_indices, print);
+      if(!print)
+        return ret_rel;
+    }
+    else {
+      ret_rel = removeDuplicatesRelation(relation_name, column_name, mem_block_indices, print);
+      if(!print)
+        return ret_rel;
+    }
+    return ret_rel;
+  }
+
+  //removeDuplicates in memory function
+  Relation* removeDuplicatesMemory(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    Relation* ret_rel;
+    sortMemory(relation_name, column_name, mem_block_indices);
+    int output_block_index = mManager.getFreeBlockIndex();
+    if(output_block_index == -1)
+      return nullptr;
+    Block* output = mem->getBlock(output_block_index);
+    Block* mem_block_0 = mem->getBlock(mem_block_indices[0]);
+    Tuple tuple = mem_block_0->getTuple(0);
+    Schema s = tuple.getSchema();
+    if(!print) {
+      output->appendTuple(tuple);
+    }
+    else {
+      printFieldNames(s);
+      std::cout << tuple << std::endl;
+    }
+    {
+      std::vector<Tuple> tuples = mem_block_0->getTuples(); 
+      for(int j = 1; j < tuples.size(); j++) {
+        Tuple tuple2 = mem_block_0->getTuple(j);
+        if(!equalTuples(tuple, tuple2)) {
+          tuple = tuple2;
+          if(!print) {
+            if(output->isFull()) {
+              ret_rel->setBlock(ret_rel->getNumOfBlocks(), output_block_index);
+              output->clear();
+            }
+            output->appendTuple(tuple);
+          }
+          else {
+            std::cout << tuple << std::endl;
+          }
+        }
+      }
+    }
+    for(int i = 1; i < mem_block_indices.size(); i++) {
+      Block* mem_block = mem->getBlock(mem_block_indices[i]);
+      std::vector<Tuple> tuples = mem_block->getTuples();
+      for(int j = 0; j < tuples.size(); j++) {
+        Tuple tuple2 = mem_block->getTuple(j);
+        if(!equalTuples(tuple, tuple2) != 0) {
+          tuple = tuple2;
+          if(!print) {
+            if(output->isFull()) {
+              ret_rel->setBlock(ret_rel->getNumOfBlocks(), output_block_index);
+              output->clear();
+            }
+            output->appendTuple(tuple);
+          }
+          else {
+            std::cout << tuple << std::endl;
+          }
+        }
+      }
+    }
+    if(!print)
+      return ret_rel;
+    return nullptr;
+  }
+
+  //removeDuplicates for relation function
+  Relation* removeDuplicatesRelation(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    Relation* orig_rel = schema_manager.getRelation(relation_name);
+    int rel_blocks = orig_rel->getNumOfBlocks();
+    //if(false) {
+    if(rel_blocks <= mManager.numFreeBlocks()) {
+      for(int i = 0; i < rel_blocks; i++) {
+        int free_block_index = mManager.getFreeBlockIndex();
+        orig_rel->getBlock(i, free_block_index);
+        mem_block_indices.push_back(free_block_index);
+      }
+      Relation* ret_rel = removeDuplicatesMemory(relation_name, column_name, mem_block_indices, print);
+      if(!print)
+        return ret_rel;
+      return nullptr;
+    }
+    else { //two pass
+
+    }
+    return nullptr;
+  }
 
   //main sort function
   Relation* sort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
