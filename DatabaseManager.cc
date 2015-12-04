@@ -383,18 +383,11 @@ public:
     std::vector<std::string> large_column_names = large_schema.getFieldNames();
     std::vector<enum FIELD_TYPE> large_data_types = large_schema.getFieldTypes();
 
-    std::string dotString = ".";
-    for(int  i = 0; i < small_column_names.size(); i++) {
-      if (small_column_names[i].find(dotString) == std::string::npos) {
-        small_column_names[i] = small_relation_name + "." + small_column_names[i];
-      }
-    }
+    for(int  i = 0; i < small_column_names.size(); i++)
+      small_column_names[i] = small_relation_name + "." + small_column_names[i];
 
-    for(int  i = 0; i < large_column_names.size(); i++) {
-      if (large_column_names[i].find(dotString) == std::string::npos) {
-        large_column_names[i] = large_relation_name + "." + large_column_names[i];
-      }
-    }
+    for(int  i = 0; i < large_column_names.size(); i++)
+      large_column_names[i] = large_relation_name + "." + large_column_names[i];
 
     std::vector<std::string> new_column_names;
     std::vector<enum FIELD_TYPE> new_data_types;
@@ -485,8 +478,8 @@ public:
 
     std::cout << "Small Size: " << small_n << std::endl;
     std::cout << "Large Size: " << large_n << std::endl;
-
-    std::cout << new_relation->getSchema() << std::endl;
+    std::cout << "Num Small in Mem: " << num_small_in_mem << std::endl;
+    std::cout << "Free In Mem: " << mManager.numFreeBlocks() << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
@@ -768,13 +761,6 @@ public:
             curProjListMap[selectList[j]] = true;
           }
         }
-        for (int j = 0; j < curWhereConditionRoot->children.size(); ++j) {
-          if (curWhereConditionRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
-            if (curColumns.find(curWhereConditionRoot->children[j]->value) != curColumns.end()) {
-              curProjListMap[curWhereConditionRoot->children[j]->value] = true;
-            }
-          }
-        }
         for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
           ParseTreeNode* curRoot = (*it);
           for (int j = 0; j < curRoot->children.size(); ++j) {
@@ -788,6 +774,7 @@ public:
       }
 
       Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curProjListMap, storeOutput);
+      std::cout << "Complete" << std::endl;
 
       if (storeOutput) {
         if (outputRelation == nullptr) {
@@ -823,8 +810,8 @@ public:
           processSelectSingleTable(root, tuples, false);
           int num_free_mem_blocks = mManager.numFreeBlocks();
           int num_blocks_req = tuples.size() / tuples[0].getTuplesPerBlock();
-          //if(false) {
-          if(num_blocks_req <= num_free_mem_blocks) {
+          if(false) {
+          //if(num_blocks_req <= num_free_mem_blocks) {
             //can fit in main memory; fill up main_mem blocks
             int current_block_index = mManager.getFreeBlockIndex();
             Block* current_block = mem->getBlock(current_block_index);
@@ -881,8 +868,8 @@ public:
   //main sort function
   Relation* sort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
     Relation* ret_rel;
-    //if(false) {
-    if(mem_block_indices.size() > 0) {
+    if(false) {
+    //if(mem_block_indices.size() > 0) {
       sortMemory(relation_name, column_name, mem_block_indices);
       return nullptr;
     }
@@ -931,8 +918,8 @@ public:
     //mem_block_indices.size() == 0
     Relation* orig_rel = schema_manager.getRelation(relation_name);
     int rel_blocks = orig_rel->getNumOfBlocks();
-    //if(false) {
-    if(rel_blocks <= mManager.numFreeBlocks()) {
+    if(false) {
+    //if(rel_blocks <= mManager.numFreeBlocks()) {
       for(int i = 0; i < rel_blocks; i++) {
         int free_block_index = mManager.getFreeBlockIndex();
         orig_rel->getBlock(i, free_block_index);
@@ -973,6 +960,17 @@ public:
         mManager.releaseNBlocks(i_mem_block_indices);
       }
 
+      //clear whole memory
+      for(int i = 0; i < mem->getMemorySize(); i++)
+        mem->getBlock(i)->clear();
+
+      std::cout<<"number of free blocks: "<<mManager.numFreeBlocks()<<endl;
+      std::cout << *sublist_rel <<endl;
+      std::cout<<"sublist_indices: "<<endl;
+      for(int i = 0; i < sublist_indices.size(); i++)
+        std::cout<<sublist_indices[i]<<endl;
+      std::cout<<"before everything:" <<endl<< *mem <<endl;
+
       int sublist_to_mem_map[sublist_indices.size()];
       int sublist_counters[sublist_indices.size()];
       for(int i = 0; i < sizeof(sublist_counters); i++)
@@ -988,6 +986,7 @@ public:
 
       std::vector<Block*> mem_blocks_sublist;
     //bring 1 block from each sublist in memory
+      std::cout<<"number of free blocks: "<<mManager.numFreeBlocks()<<endl;
       for(int i = 0; i < sublist_indices.size(); i++) {
         int free_block_index = mManager.getFreeBlockIndex();
         mem_blocks_sublist.push_back(mem->getBlock(free_block_index));
@@ -995,113 +994,161 @@ public:
         sublist_to_mem_map[i] = free_block_index;
       }
 
-      while(!allDone) {
-      //find minimum tuple
-        int min_tuple_block = 0;
-        int min_tuple_index = 0;
-        int tuple_temp_index = 0, block_temp_index = 0;
-        Tuple min_tuple = mem_blocks_sublist[block_temp_index]->getTuple(tuple_temp_index);
-        while(min_tuple.isNull()) {
-          if(++tuple_temp_index == mem_blocks_sublist[block_temp_index]->getNumTuples()) {
-            block_temp_index++;
-            tuple_temp_index = 0;
-          }
-          if(block_temp_index == sublist_indices.size()) {
-            allDone = true;
-            break;
-          }
-          min_tuple = mem_blocks_sublist[block_temp_index]->getTuple(tuple_temp_index);
-        }
-        Schema s = mem_blocks_sublist[block_temp_index]->getTuple(tuple_temp_index).getSchema();
+      std::cout<<"after bringing in:" <<endl<< *mem <<endl;
+      int c = 0;
 
-        std::cout<<"min tuple: " << min_tuple <<endl;
+      int min_tuple_block = 0;
+      int min_tuple_index = 0;
+
+      while(final_rel->getNumOfTuples() < orig_rel->getNumOfTuples()) {
+      //find minimum tuple
+        
+        int tuple_temp_index = 0, block_temp_index = 0;
+        Tuple min_tuple = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]);
+        // while(min_tuple.isNull() == true) {
+        //   std::cout<<"tuple at "<<block_temp_index<<" block "<<tuple_temp_index<<" index is null";
+        //   if(tuple_temp_index == output->getTuple(0).getTuplesPerBlock()) {
+        //     block_temp_index++;
+        //     tuple_temp_index = 0;
+        //   }
+        //   if(block_temp_index == sublist_indices.size()) {
+        //     allDone = true;
+        //     break;
+        //   }
+        //   min_tuple_block = block_temp_index;
+        //   min_tuple_index = tuple_temp_index;
+        //   min_tuple = mem_blocks_sublist[block_temp_index]->getTuple(++tuple_temp_index);
+        //   std::cout<<"tuple: "<<min_tuple<<" is "<<min_tuple.isNull()<<endl;
+        // }
+        Schema s = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]).getSchema();
+        min_tuple_index = tuple_index[min_tuple_block];
+        std::cout<<"min tuple before: " << min_tuple <<endl;
+        std::cout<<"min_tuple_block before: "<<min_tuple_block<<endl;
+        std::cout<<"min_tuple_index before: "<<tuple_index[min_tuple_block]<<endl;
 
         if(allDone)
           break;
 
         for(int i = 0; i < mem_blocks_sublist.size(); i++) {
-          for(int j = 0; j < mem_blocks_sublist[i]->getNumTuples(); j++) {
-            Tuple tuple = mem_blocks_sublist[i]->getTuple(j);
-            if(tuple.isNull())
-              continue;
-            Field field1 = min_tuple.getField(column_name);
-            Field field2 = tuple.getField(column_name);
-            if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
-              min_tuple = tuple;
-              min_tuple_block = i;
-              min_tuple_index = j;
-            }
+          Tuple tuple = mem_blocks_sublist[i]->getTuple(tuple_index[i]);
+          std::cout<<"min_tuple_inter : " <<min_tuple<<endl;
+          std::cout<<"tuple_inter : " <<tuple<<endl;
+          if(tuple.isNull())
+            continue;
+          Field field1 = min_tuple.getField(column_name);
+          Field field2 = tuple.getField(column_name);
+          if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
+            min_tuple = tuple;
+            min_tuple_block = i;
+            min_tuple_index = tuple_index[i];
           }
+          
+          // for(int j = 0; j < mem_blocks_sublist[i]->getNumTuples(); j++) {
+          //   Tuple tuple = mem_blocks_sublist[i]->getTuple(j);
+          //   if(tuple.isNull())
+          //     continue;
+          //   Field field1 = min_tuple.getField(column_name);
+          //   Field field2 = tuple.getField(column_name);
+          //   if(compareFields(s.getFieldType(column_name), field1, field2) == 1 || 
+          //     compareFields(s.getFieldType(column_name), field1, field2) == 0) {
+          //     min_tuple = tuple;
+          //     min_tuple_block = i;
+          //     min_tuple_index = j;
+          //   }
+          // }
         }
 
+        std::cout<<"min tuple: " << min_tuple <<endl;
+        std::cout<<"min_tuple_block: "<<min_tuple_block<<endl;
+        std::cout<<"min_tuple_index: "<<min_tuple_index<<endl;
+
         output->appendTuple(min_tuple);
-        if(output->isFull()) {
-          final_rel->setBlock(final_rel->getNumOfBlocks(), output_block_index);
-          output->clear();
-        }
-        std::cout<< "final relation : " <<endl << *final_rel<<endl;
-        
+        std::cout<<"before nulling:" <<endl<< *mem <<endl;
         mem_blocks_sublist[min_tuple_block]->nullTuple(min_tuple_index);
-        int all_tuples_in_block_null = 1;
-        for(int i = 0; i < mem_blocks_sublist[min_tuple_block]->getNumTuples(); i++) {
-          if(!mem_blocks_sublist[min_tuple_block]->getTuple(i).isNull())
-            all_tuples_in_block_null = 0;
-        }
-        if(all_tuples_in_block_null == 1) {
+        std::cout<<"after nulling:" <<endl<< *mem <<endl;
+        int max_tuples_per_block = output->getTuple(0).getTuplesPerBlock();
+        tuple_index[min_tuple_block]++;
+        if(tuple_index[min_tuple_block] == max_tuples_per_block) {
           sublist_counters[min_tuple_block]++;
-        //if within limit
+          tuple_index[min_tuple_block] = 0;
           if((min_tuple_block == sublist_indices.size() - 1 && 
             sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
             (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1])) {
-            sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], min_tuple_block);
+            sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], sublist_to_mem_map[min_tuple_block]);
           }
         }
-      }
+        // if((min_tuple_block == sublist_indices.size() - 1 && 
+        //   sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
+        //   (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1])) {
+        //   sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], min_tuple_block);
+        // }
 
-      allDone = true;
-      for(int i = 0; i < mem_blocks_sublist.size(); i++) {
-        for(int j = 0; j < mem_blocks_sublist[i]->getNumTuples(); j++) {
-          if(!mem_blocks_sublist[i]->getTuple(j).isNull()) {
-            allDone = false;
-            break;
-          }
-        }
+      if(output->isFull()) {
+        final_rel->setBlock(final_rel->getNumOfBlocks(), output_block_index);
+        output->clear();
+        std::cout<< "final relation : " <<endl << *final_rel<<endl;
       }
-      return final_rel;
+      
+      //int all_tuples_in_block_null = 1;
+        // for(int i = 0; i < mem_blocks_sublist[min_tuple_block]->getNumTuples(); i++) {
+        //   if(!mem_blocks_sublist[min_tuple_block]->getTuple(i).isNull())
+        //     all_tuples_in_block_null = 0;
+        // }
+        // if(all_tuples_in_block_null == 1) {
+        //   sublist_counters[min_tuple_block]++;
+        //if within limit
+    //   if((min_tuple_block == sublist_indices.size() - 1 && 
+    //     sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
+    //     (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1])) {
+    //     sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], min_tuple_block);
+    // }
     }
+  //c++;
 
-    return nullptr;
+  allDone = true;
+  for(int i = 0; i < mem_blocks_sublist.size(); i++) {
+    for(int j = 0; j < mem_blocks_sublist[i]->getNumTuples(); j++) {
+      if(!mem_blocks_sublist[i]->getTuple(j).isNull()) {
+        allDone = false;
+        break;
+      }
+    }
+  }
+  return final_rel;
+}
+
+return nullptr;
+}
+
+
+bool processQuery(std::string& query) {
+  disk->resetDiskIOs();
+  disk->resetDiskTimer();
+
+  bool result = false;
+
+  std::cout << "Q>"<< query << std::endl;
+  ParseTreeNode* root = Parser::parseQuery(query, tokens);
+  if (root == nullptr) {
+    return false;
   }
 
-
-  bool processQuery(std::string& query) {
-    disk->resetDiskIOs();
-    disk->resetDiskTimer();
-
-    bool result = false;
-
-    std::cout << "Q>"<< query << std::endl;
-    ParseTreeNode* root = Parser::parseQuery(query, tokens);
-    if (root == nullptr) {
-      return false;
-    }
-
-    if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
-      result = processCreateTableStatement(root);
-    } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
-      result = processDropTableStatement(root);
-    } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
-      result = processInsertStatement(root);
-    } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
-      result = processSelectStatement(root);
-    } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
-      result = processDeleteStatement(root);
-    }
-
-    std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
-    std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
-    return result;
+  if (root->type == NODE_TYPE::CREATE_TABLE_STATEMENT) {
+    result = processCreateTableStatement(root);
+  } else if (root->type == NODE_TYPE::DROP_TABLE_STATEMENT) {
+    result = processDropTableStatement(root);
+  } else if (root->type == NODE_TYPE::INSERT_STATEMENT) {
+    result = processInsertStatement(root);
+  } else if (root->type == NODE_TYPE::SELECT_STATEMENT) {
+    result = processSelectStatement(root);
+  } else if (root->type == NODE_TYPE::DELETE_STATEMENT) {
+    result = processDeleteStatement(root);
   }
+
+  std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
+  std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+  return result;
+}
 };
 
 #endif
