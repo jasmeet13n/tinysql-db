@@ -803,6 +803,11 @@ public:
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
+      //removeDuplicates test
+      // std::vector<int> blocks;
+      // Relation* rel = removeDuplicates(root->children[index]->children[0]->value,
+      //   "a", blocks, true);
+      // return true;
       //order by 
       if(root->children.size() > index + 1) {
         int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
@@ -906,9 +911,11 @@ public:
     int output_block_index = mManager.getFreeBlockIndex();
     if(output_block_index == -1)
       return nullptr;
+    std::vector<Tuple> seen_distinct_tuples;
     Block* output = mem->getBlock(output_block_index);
     Block* mem_block_0 = mem->getBlock(mem_block_indices[0]);
     Tuple tuple = mem_block_0->getTuple(0);
+    seen_distinct_tuples.push_back(tuple);
     Schema s = tuple.getSchema();
     if(!print) {
       output->appendTuple(tuple);
@@ -921,8 +928,16 @@ public:
       std::vector<Tuple> tuples = mem_block_0->getTuples(); 
       for(int j = 1; j < tuples.size(); j++) {
         Tuple tuple2 = mem_block_0->getTuple(j);
-        if(!equalTuples(tuple, tuple2)) {
+        bool seen = false;
+        for(int k = 0; k < seen_distinct_tuples.size(); k++) {
+          if(equalTuples(seen_distinct_tuples[k], tuple2)) {
+            seen = true;
+            break;
+          }
+        }
+        if(!seen) {
           tuple = tuple2;
+          seen_distinct_tuples.push_back(tuple);
           if(!print) {
             if(output->isFull()) {
               ret_rel->setBlock(ret_rel->getNumOfBlocks(), output_block_index);
@@ -941,8 +956,16 @@ public:
       std::vector<Tuple> tuples = mem_block->getTuples();
       for(int j = 0; j < tuples.size(); j++) {
         Tuple tuple2 = mem_block->getTuple(j);
-        if(!equalTuples(tuple, tuple2) != 0) {
+        bool seen = false;
+        for(int k = 0; k < seen_distinct_tuples.size(); k++) {
+          if(equalTuples(seen_distinct_tuples[k], tuple2)) {
+            seen = true;
+            break;
+          }
+        }
+        if(!seen) {
           tuple = tuple2;
+          seen_distinct_tuples.push_back(tuple);
           if(!print) {
             if(output->isFull()) {
               ret_rel->setBlock(ret_rel->getNumOfBlocks(), output_block_index);
