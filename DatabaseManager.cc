@@ -569,6 +569,13 @@ public:
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
+      //order by 
+      if(root->children.size() > index + 1) {
+        int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
+        if(root->children.size() > order_index + 1) {
+          processSelectSingleTable(root, tuples, false);
+        }
+      }
       return processSelectSingleTable(root, tuples, true);
     }
     else {
@@ -582,6 +589,79 @@ public:
       // make logical query plan
     }
     return false;
+  }
+
+  
+
+  //main sort function
+  Relation* sort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
+    Relation* ret_rel;
+    if(mem_block_indices.size() > 0) {
+      sortMemory(relation_name, column_name, mem_block_indices);
+      return nullptr;
+    }
+    else {
+      ret_rel = sortRelation(relation_name, column_name, mem_block_indices);
+      if(mem_block_indices.size() > 0)
+        return nullptr;
+    }
+    return ret_rel;
+  }
+
+  //sortMemory function
+  void sortMemory(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
+    int blocks = mem_block_indices.size();
+    int tuples_per_block = (mem->getBlock(mem_block_indices[0]))->getNumTuples(); //max tuples per block
+    int j = 0;
+    int n = (blocks - 1) * tuples_per_block;
+    n = n + (mem->getBlock(mem_block_indices[mem_block_indices.size() - 1]))->getNumTuples();
+    bool swapped = true;
+
+    std::cout<<"blocks: "<<blocks<<endl;
+    std::cout<<"tuples_per_block: "<<tuples_per_block<<endl;
+    std::cout<<"n: "<<n<<endl;
+    
+    while(swapped) {
+      swapped = false;
+      std::cout<<"iteration: "<<j<<endl;
+      for(int i =  0; i < n - 1 - j; i++) {
+        int block_num_1 = i / tuples_per_block;
+        int block_num_2 = (i + 1) / tuples_per_block;
+        Block* block1 = mem->getBlock(mem_block_indices[block_num_1]);
+        Block* block2 = mem->getBlock(mem_block_indices[block_num_2]);
+        int tuple1_offset = i % tuples_per_block;
+        int tuple2_offset = (i + 1) % tuples_per_block;
+        Field field1 = (block1->getTuple(tuple1_offset)).getField(column_name);
+        Field field2 = (block2->getTuple(tuple2_offset)).getField(column_name);
+        Schema s = (block1->getTuple(tuple1_offset)).getSchema();
+        if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
+          std::cout<< "first tuple:" << block1->getTuple(tuple1_offset)<<endl;
+          std::cout<< "second tuple:" << block2->getTuple(tuple2_offset)<<endl;
+          Tuple temp = block1->getTuple(tuple1_offset);
+          block1->setTuple(tuple1_offset, block2->getTuple(tuple2_offset));
+          block2->setTuple(tuple2_offset, temp);
+          swapped = true;
+          std::cout<< "first tuple:" << block1->getTuple(tuple1_offset)<<endl;
+          std::cout<< "second tuple:" << block2->getTuple(tuple2_offset)<<endl;
+        }
+      }
+      j++;
+      std::cout << *mem << std::endl;
+    }
+  }  
+
+  //sortRelation function
+  Relation* sortRelation(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices) {
+    Relation* orig_rel = schema_manager.getRelation(relation_name);
+    int rel_blocks = orig_rel->getNumOfBlocks();
+    if(rel_blocks <= mManager.numFreeBlocks()) {
+      sortMemory(relation_name, column_name, mem_block_indices);
+      return nullptr;
+    }
+    else { //two pass
+
+    }
+    return nullptr;
   }
 
   bool processQuery(std::string& query) {
