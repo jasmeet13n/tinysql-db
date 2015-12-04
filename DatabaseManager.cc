@@ -72,13 +72,13 @@ private:
   }
 
   bool appendTupleToMemBlock(Block* block_ptr, Tuple& tuple) {
-      if(block_ptr->isFull()) {
-        return false;
-      } else {
-        block_ptr->appendTuple(tuple);
-      }
-      return true;
+    if(block_ptr->isFull()) {
+      return false;
+    } else {
+      block_ptr->appendTuple(tuple);
     }
+    return true;
+  }
 
 public:
   DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) {
@@ -363,7 +363,7 @@ public:
   }
 
   Schema createCommonSchema(Relation* small, Relation* large, std::unordered_map<std::string, bool>& projListMap,
-      std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
+    std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
     std::string small_relation_name = small->getRelationName();
     std::string large_relation_name = large->getRelationName();
     Schema small_schema = schema_manager.getSchema(small_relation_name);
@@ -417,7 +417,7 @@ public:
   }
 
   Relation* crossJoinWithCondition(std::string rSmall, std::string rLarge,
-      ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
     Relation* small = schema_manager.getRelation(rSmall);
     Relation* large = schema_manager.getRelation(rLarge);
     int small_n = small->getNumOfBlocks();
@@ -595,6 +595,44 @@ public:
         int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
         if(root->children.size() > order_index + 1) {
           processSelectSingleTable(root, tuples, false);
+          int num_free_mem_blocks = mManager.numFreeBlocks();
+          int num_blocks_req = tuples.size() / tuples[0].getTuplesPerBlock();
+          if(num_blocks_req <= num_free_mem_blocks) {
+            //can fit in main memory; fill up main_mem blocks
+            int current_block_index = mManager.getFreeBlockIndex();
+            Block* current_block = mem->getBlock(current_block_index);
+            current_block->clear();
+            std::vector<int> mem_block_indices;
+            std::cout<<*mem<<endl;
+            for(int i = 0; i < tuples.size(); i++) {
+              if(!appendTupleToMemBlock(current_block, tuples[i])) {
+                mem_block_indices.push_back(current_block_index);
+                current_block_index = mManager.getFreeBlockIndex();
+                current_block = mem->getBlock(current_block_index);
+                current_block->clear();
+                appendTupleToMemBlock(current_block, tuples[i]);
+              }
+            }
+            mem_block_indices.push_back(current_block_index);
+            std::cout<< *mem <<endl;
+            Relation* temp_rel = sort(root->children[index]->children[0]->value, 
+              root->children[order_index + 2]->value, mem_block_indices);
+            for(int i = 0; i < mem_block_indices.size(); i++) {
+              Block* block = mem->getBlock(mem_block_indices[i]);
+              std::vector<Tuple> mem_tuples = block->getTuples();
+              for(int j = 0; j < mem_tuples.size(); j++)
+                std::cout<< mem_tuples[j]<< std::endl;
+            }
+            mManager.releaseNBlocks(mem_block_indices);
+          }
+          else {
+            // can't fit in main memory
+            std::vector<int> mem_blocks;
+            Relation* temp_rel = sort(root->children[index]->children[0]->value, 
+              root->children[order_index + 2]->value, mem_blocks);
+            mManager.releaseNBlocks(mem_blocks);
+          }
+          return true;
         }
       }
       return processSelectSingleTable(root, tuples, true);
@@ -639,13 +677,8 @@ public:
     n = n + (mem->getBlock(mem_block_indices[mem_block_indices.size() - 1]))->getNumTuples();
     bool swapped = true;
 
-    std::cout<<"blocks: "<<blocks<<endl;
-    std::cout<<"tuples_per_block: "<<tuples_per_block<<endl;
-    std::cout<<"n: "<<n<<endl;
-    
     while(swapped) {
       swapped = false;
-      std::cout<<"iteration: "<<j<<endl;
       for(int i =  0; i < n - 1 - j; i++) {
         int block_num_1 = i / tuples_per_block;
         int block_num_2 = (i + 1) / tuples_per_block;
@@ -657,18 +690,13 @@ public:
         Field field2 = (block2->getTuple(tuple2_offset)).getField(column_name);
         Schema s = (block1->getTuple(tuple1_offset)).getSchema();
         if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
-          std::cout<< "first tuple:" << block1->getTuple(tuple1_offset)<<endl;
-          std::cout<< "second tuple:" << block2->getTuple(tuple2_offset)<<endl;
           Tuple temp = block1->getTuple(tuple1_offset);
           block1->setTuple(tuple1_offset, block2->getTuple(tuple2_offset));
           block2->setTuple(tuple2_offset, temp);
           swapped = true;
-          std::cout<< "first tuple:" << block1->getTuple(tuple1_offset)<<endl;
-          std::cout<< "second tuple:" << block2->getTuple(tuple2_offset)<<endl;
         }
       }
       j++;
-      std::cout << *mem << std::endl;
     }
   }  
 
