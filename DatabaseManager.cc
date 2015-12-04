@@ -71,6 +71,15 @@ private:
     return true;
   }
 
+  bool appendTupleToMemBlock(Block* block_ptr, Tuple& tuple) {
+      if(block_ptr->isFull()) {
+        return false;
+      } else {
+        block_ptr->appendTuple(tuple);
+      }
+      return true;
+    }
+
 public:
   DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) {
     this->mem = m;
@@ -435,10 +444,13 @@ public:
     }
 
     int output_mem_block_index = -1;
+    Block* output_mem_block_ptr = nullptr;
     if (storeOutput) {
       output_mem_block_index = mManager.getFreeBlockIndex();
       if (output_mem_block_index == -1) {
         return nullptr;
+      } else {
+        output_mem_block_ptr = mem->getBlock(output_mem_block_index);
       }
     }
 
@@ -526,7 +538,11 @@ public:
 
               if (ans) {
                 if (storeOutput) {
-                  appendTupleToRelation(new_relation, output_mem_block_index, new_tuple);
+                  if (!appendTupleToMemBlock(output_mem_block_ptr, new_tuple)) {
+                    new_relation->setBlock(new_relation->getNumOfBlocks(), output_mem_block_index);
+                    output_mem_block_ptr->clear();
+                    appendTupleToMemBlock(output_mem_block_ptr, new_tuple);
+                  }
                 } else {
                   std::cout << new_tuple << std::endl;
                 }
@@ -535,6 +551,11 @@ public:
           }
         }
       }
+    }
+
+    if (!output_mem_block_ptr->isEmpty()) {
+      new_relation->setBlock(new_relation->getNumOfBlocks(), output_mem_block_index);
+      output_mem_block_ptr->clear();
     }
 
     //memblocks release
@@ -585,7 +606,8 @@ public:
 
       unordered_map<std::string, bool> m;
       m["*"] = true;
-      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, false);
+      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, true);
+      std::cout << newRelation << std::endl;
       // make logical query plan
     }
     return false;

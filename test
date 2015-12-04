@@ -47,6 +47,7 @@ INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
 SELECT * FROM course, course2 WHERE course.grade = course2.grade
+SELECT * FROM course_course2
 exit
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (17, 100, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 99, "B")
