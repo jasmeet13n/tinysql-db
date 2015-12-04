@@ -1,32 +1,27 @@
-CREATE TABLE test (id INT, name STR20, status STR20)
-INSERT INTO test (id, name, status) VALUES (20, "Jasmeet Singh", "Hello World")
-INSERT INTO test (id, name, status) VALUES (15, "East Singh", "Hello What World")
-INSERT INTO test (id, name, status) VALUES (16, "West Jasmeet Singh", "Hello 2  World")
-INSERT INTO test (id, name, status) VALUES (10, "North Jasmeet Singh", "Hello 3  World")
-INSERT INTO test (id, name, status) VALUES (11, "South Jasmeet", "Hello 4  World")
-SELECT DISTINCT status, name FROM test1, test2 WHERE id > 10 ORDER BY name
-SELECT * FROM test1, test2 WHERE id > 10 ORDER BY name
-SELECT DISTINCT * FROM test1, test2 WHERE id > 10 ORDER BY name
-SELECT * FROM test1, test2 WHERE id > 10
-SELECT status, name FROM test1, test2 ORDER BY name
+CREATE TABLE t1 (c INT)
+CREATE TABLE t2 (c INT)
+CREATE TABLE t3 (c INT)
+CREATE TABLE t4 (c INT)
+CREATE TABLE t5 (c INT)
+CREATE TABLE t6 (c INT)
+INSERT INTO t1 (c) VALUES (0)
+INSERT INTO t1 (c) VALUES (1)
+INSERT INTO t2 (c) VALUES (0)
+INSERT INTO t2 (c) VALUES (1)
+INSERT INTO t3 (c) VALUES (0)
+INSERT INTO t3 (c) VALUES (1)
+INSERT INTO t4 (c) VALUES (0)
+INSERT INTO t4 (c) VALUES (1)
+INSERT INTO t5 (c) VALUES (0)
+INSERT INTO t5 (c) VALUES (1)
+INSERT INTO t6 (c) VALUES (0)
+INSERT INTO t6 (c) VALUES (1)
+SELECT * FROM t1, t2, t3, t4, t5, t6
 exit
-SELECT status, name FROM test
-SELECT * FROM test
-SELECT * FROM test WHERE NOT id > 3
-CREATE TABLE test2 (id INT, name STR20, status STR20)
-INSERT INTO test2(id, name, status) SELECT id, name, status FROM test
-SELECT * FROM test2
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 98, "C")
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 69, 64, "C")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 100, 50, 90, "E")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (5, 100, 99, 100, "E")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (6, 100, 100, 65, "B")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (7, 100, 50, 73, "C")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (8, 50, 50, 62, "C")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (9, 50, 50, 61, "D")
-INSERT INTO course (sid, homework, project, exam, grade) VALUES (10, 50, 70, 70, "C")
 CREATE TABLE course2 (sid INT, exam INT, grade STR20)
 INSERT INTO course2 (sid, exam, grade) VALUES (11, 100, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (12, 25, "E")
@@ -36,23 +31,12 @@ INSERT INTO course2 (sid, exam, grade) VALUES (3, 98, "C")
 INSERT INTO course2 (sid, exam, grade) VALUES (4, 97, "D")
 INSERT INTO course2 (sid, exam, grade) VALUES (5, 66, "A")
 INSERT INTO course2 (sid, exam, grade) VALUES (6, 65, "B")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
-INSERT INTO course2 (sid, exam, grade) VALUES (18, 0, "A")
+CREATE TABLE course3 (sid INT, homework INT, project INT, exam INT, grade STR20)
+INSERT INTO course3 (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
+INSERT INTO course3 (sid, homework, project, exam, grade) VALUES (2, 100, 100, 98, "C")
+INSERT INTO course3 (sid, homework, project, exam, grade) VALUES (3, 100, 69, 64, "C")
 SELECT * FROM course, course2 WHERE course.grade = course2.grade
+exit
 SELECT * FROM course_course2
 exit
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (17, 100, 100, 100, "A")

@@ -370,6 +370,10 @@ private:
   }
 
 public:
+  static ParseTreeNode* getPostfixNodePublic(std::vector<std::string>& tokens, int start_index, int end_index) {
+    return getPostfixNode(tokens, start_index, end_index);
+  }
+
   static bool isOperator(std::string& token) {
     if (token == "OR" || token == "AND" || token == "NOT" || token == "=" || token == "<" || token == ">") {
       return true;
@@ -379,8 +383,7 @@ public:
     return false;
   }
 
-  static ParseTreeNode* parseQuery(const std::string& query) {
-    std::vector<std::string> tokens;
+  static ParseTreeNode* parseQuery(const std::string& query, std::vector<std::string>& tokens) {
     tokens = Tokenizer::getTokens(query);
     // make first token toUpper
 
