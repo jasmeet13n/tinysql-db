@@ -383,11 +383,18 @@ public:
     std::vector<std::string> large_column_names = large_schema.getFieldNames();
     std::vector<enum FIELD_TYPE> large_data_types = large_schema.getFieldTypes();
 
-    for(int  i = 0; i < small_column_names.size(); i++)
-      small_column_names[i] = small_relation_name + "." + small_column_names[i];
+    std::string dotString = ".";
+    for(int  i = 0; i < small_column_names.size(); i++) {
+      if (small_column_names[i].find(dotString) == std::string::npos) {
+        small_column_names[i] = small_relation_name + "." + small_column_names[i];
+      }
+    }
 
-    for(int  i = 0; i < large_column_names.size(); i++)
-      large_column_names[i] = large_relation_name + "." + large_column_names[i];
+    for(int  i = 0; i < large_column_names.size(); i++) {
+      if (large_column_names[i].find(dotString) == std::string::npos) {
+        large_column_names[i] = large_relation_name + "." + large_column_names[i];
+      }
+    }
 
     std::vector<std::string> new_column_names;
     std::vector<enum FIELD_TYPE> new_data_types;
@@ -478,8 +485,8 @@ public:
 
     std::cout << "Small Size: " << small_n << std::endl;
     std::cout << "Large Size: " << large_n << std::endl;
-    std::cout << "Num Small in Mem: " << num_small_in_mem << std::endl;
-    std::cout << "Free In Mem: " << mManager.numFreeBlocks() << std::endl;
+
+    std::cout << new_relation->getSchema() << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
@@ -761,6 +768,13 @@ public:
             curProjListMap[selectList[j]] = true;
           }
         }
+        for (int j = 0; j < curWhereConditionRoot->children.size(); ++j) {
+          if (curWhereConditionRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
+            if (curColumns.find(curWhereConditionRoot->children[j]->value) != curColumns.end()) {
+              curProjListMap[curWhereConditionRoot->children[j]->value] = true;
+            }
+          }
+        }
         for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
           ParseTreeNode* curRoot = (*it);
           for (int j = 0; j < curRoot->children.size(); ++j) {
@@ -774,7 +788,6 @@ public:
       }
 
       Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curProjListMap, storeOutput);
-      std::cout << "Complete" << std::endl;
 
       if (storeOutput) {
         if (outputRelation == nullptr) {
