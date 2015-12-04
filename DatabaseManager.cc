@@ -4,6 +4,7 @@
 #include <string>
 #include <algorithm>
 #include <unordered_map>
+#include <unordered_set>
 
 #include "./StorageManager/Block.h"
 #include "./StorageManager/Config.h"
@@ -72,13 +73,13 @@ private:
   }
 
   bool appendTupleToMemBlock(Block* block_ptr, Tuple& tuple) {
-      if(block_ptr->isFull()) {
-        return false;
-      } else {
-        block_ptr->appendTuple(tuple);
-      }
-      return true;
+    if(block_ptr->isFull()) {
+      return false;
+    } else {
+      block_ptr->appendTuple(tuple);
     }
+    return true;
+  }
 
 public:
   DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) {
@@ -464,7 +465,7 @@ public:
     if (num_small_in_mem <= 0) {
       return nullptr;
     }
-    //    int num_small_in_mem = 0;
+    // int num_small_in_mem = 0;
 
     std::cout << "Small Size: " << small_n << std::endl;
     std::cout << "Large Size: " << large_n << std::endl;
@@ -571,9 +572,85 @@ public:
   }
 
   bool processSelectMultiTable(ParseTreeNode* root) {
-    // create projection list
+    bool hasDistinct = hasDistinct = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? true : false;;
+    bool hasOrderBy = false;
+    bool hasDistOrSort = false;
+    int selectListIndex = hasDistinct ? 2 : 1;
 
+    bool hasWhereCondition = Utils::hasWhereCondition(root);
+    ParseTreeNode* whereConditionRoot = hasWhereCondition ? root->children[selectListIndex + 3] : nullptr;
+
+    std::vector<std::string> selectList;
+    Utils::getSelectList(root, selectList);
+
+    // create projection list
+    std::unordered_map<std::string, bool> projListMap;
+    for (int i = 0; i < selectList.size(); ++i) {
+      projListMap[selectList[i]] = true;
+    }
+
+    std::string sortColName;
+    if (hasWhereCondition) {
+      if (selectListIndex + 5 < root->children.size()) {
+        hasOrderBy = true;
+        sortColName = root->children[selectListIndex + 7]->value;
+      }
+    } else if (selectListIndex + 3 < root->children.size()) {
+      hasOrderBy = true;
+      sortColName = root->children[selectListIndex + 5]->value;
+    }
+    std::cout << sortColName << std::endl;
+
+    return true;
     // Break Where condition if only AND
+
+
+
+    // check if statement has distinct
+
+    // check if statement has order by
+
+    if (hasDistinct || hasOrderBy) {
+      hasDistOrSort = true;
+    }
+
+    // Add select list to projection list
+
+    // Add variables from where condition to projection list
+
+    // Add variable from order by to projection list
+
+
+    // Break Where condition into a vector separated by AND's
+    // If where condition contains OR whole WHERE statement is added to the vector
+
+    // Create a vector of relation list
+    std::vector<std::string> relationList;
+    Utils::getTableList(root, relationList);
+
+    std::string rel1 = relationList[0];
+    for (int i = 1; i < relationList.size(); ++i) {
+      std::string rel2 = relationList[1];
+
+      bool storeOutput = false;
+      if (i == relationList.size() - 1 && hasDistOrSort) {
+        storeOutput = true;
+      }
+
+
+      Relation* outputRelation = crossJoinWithCondition(rel1, rel2, whereConditionRoot, projListMap, storeOutput);
+
+      if (storeOutput) {
+        if (outputRelation == nullptr) {
+          return false;
+        }
+        rel1 = outputRelation->getRelationName();
+      }
+    }
+
+    if (hasDistOrSort) {
+      // sort
+    }
 
     // For r1, r2 in relation_list
     // Extract WhereCondition for these two relations
@@ -593,6 +670,7 @@ public:
       return processSelectSingleTable(root, tuples, true);
     }
     else {
+      return processSelectMultiTable(root);
       Relation* newRelation;
       std::string r1 = "course";
       std::string r2 = "course2";

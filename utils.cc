@@ -164,6 +164,14 @@ public:
     return lqt_node;
   }
 
+  static bool hasWhereCondition(ParseTreeNode* root) {
+    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    if (root->children.size() > 5 && root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL) {
+      return true;
+    }
+    return false;
+  }
+
 };
 
 #endif

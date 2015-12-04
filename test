@@ -4,6 +4,12 @@ INSERT INTO test (id, name, status) VALUES (15, "East Singh", "Hello What World"
 INSERT INTO test (id, name, status) VALUES (16, "West Jasmeet Singh", "Hello 2  World")
 INSERT INTO test (id, name, status) VALUES (10, "North Jasmeet Singh", "Hello 3  World")
 INSERT INTO test (id, name, status) VALUES (11, "South Jasmeet", "Hello 4  World")
+SELECT DISTINCT status, name FROM test1, test2 WHERE id > 10 ORDER BY name
+SELECT * FROM test1, test2 WHERE id > 10 ORDER BY name
+SELECT DISTINCT * FROM test1, test2 WHERE id > 10 ORDER BY name
+SELECT * FROM test1, test2 WHERE id > 10
+SELECT status, name FROM test1, test2 ORDER BY name
+exit
 SELECT status, name FROM test
 SELECT * FROM test
 SELECT * FROM test WHERE NOT id > 3
