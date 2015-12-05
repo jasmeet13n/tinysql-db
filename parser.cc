@@ -366,6 +366,11 @@ private:
     // add relation name child
     (root->children).push_back(new ParseTreeNode(NODE_TYPE::TABLE_NAME, tokens[2]));
 
+    if (tokens.size() > 3) {
+      (root->children).push_back(new ParseTreeNode(NODE_TYPE::WHERE_LITERAL, "WHERE"));
+      (root->children).push_back(getPostfixNode(tokens, 4, tokens.size()));
+    }
+
     return root;
   }
 
