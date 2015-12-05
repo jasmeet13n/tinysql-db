@@ -35,6 +35,8 @@ public:
     if (!freeBlocks.empty()) {
       int top = freeBlocks.top();
       freeBlocks.pop();
+      Block* top_block = mem->getBlock(top);
+      top_block->clear();
       return top;
     }
     return -1;
@@ -50,8 +52,7 @@ public:
     }
 
     for (int i = 0; i < ans.size(); ++i) {
-      ans[i] = freeBlocks.top();
-      freeBlocks.pop();
+      ans[i] = getFreeBlockIndex();
     }
 
     return true;
