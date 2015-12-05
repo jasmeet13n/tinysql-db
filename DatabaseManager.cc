@@ -533,11 +533,10 @@ public:
     }
 
     Schema outSchema(outFieldNames, outFieldTypes);
-    std::cout << "Output Schema" << std::endl;
-    std::cout << outSchema << std::endl;
 
     std::string outRelName = relName + "_out_tmp";
     Relation* outRel = schema_manager.createRelation(outRelName, outSchema);
+    temp_relations.push_back(outRelName);
     relName = outRelName;
 
     bool allInMemory = true;
@@ -625,6 +624,7 @@ public:
         }
       }
     }
+    mManager.releaseBlock(inMemBlockIndex);
 
     if (storeOutput) {
       if (allInMemory) {
@@ -633,8 +633,11 @@ public:
         }
         return nullptr;
       } else {
+        mManager.releaseNBlocks(curMemBlockIndices);
         return rel;
       }
+    } else {
+      mManager.releaseNBlocks(curMemBlockIndices);
     }
     return nullptr;
   }
@@ -1622,6 +1625,7 @@ public:
 
     bool result = false;
 
+    std::cout << "********************************************" << std::endl;
     std::cout << "Q>"<< query << std::endl;
     ParseTreeNode* root = Parser::parseQuery(query, tokens);
     if (root == nullptr) {
@@ -1642,6 +1646,8 @@ public:
 
     std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
     std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+
+    mManager.releaseAllBlocks();
     removeTempRelations();
     return result;
   }

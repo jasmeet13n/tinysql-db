@@ -74,6 +74,15 @@ public:
       releaseBlock(blocks[i]);
     }
   }
+
+  void releaseAllBlocks() {
+    while (!freeBlocks.empty()) {
+      freeBlocks.pop();
+    }
+    for (int i = memory_size - 1; i >= 0; --i) {
+      freeBlocks.push(i);
+    }
+  }
 };
 
 #endif
