@@ -270,9 +270,7 @@ public:
   }
 
   void removeTempRelations() {
-    std::cout << "Relations being deleted" << endl;
     for(int i = 0; i < temp_relations.size(); i++) {
-      std::cout << temp_relations[i] << endl;
       schema_manager.deleteRelation(temp_relations[i]);
     }
     temp_relations.clear();
@@ -308,7 +306,7 @@ public:
           ans = eval.evaluate(tuples[j]);
         }
 
-        if (ans) {
+        if (!ans) {
           if(!appendTupleToMemBlock(outMemBlockPtr, tuples[j])) {
             rel->setBlock(writeBlockIndex, outMemBlockIndex);
             outMemBlockPtr->clear();
@@ -318,6 +316,13 @@ public:
         }
       }
     }
+
+    if (!outMemBlockPtr->isEmpty()) {
+      rel->setBlock(writeBlockIndex, outMemBlockIndex);
+      outMemBlockPtr->clear();
+      writeBlockIndex++;
+    }
+
     rel->deleteBlocks(writeBlockIndex);
     return true;
   }
