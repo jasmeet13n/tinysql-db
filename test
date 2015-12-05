@@ -1,12 +1,19 @@
 CREATE TABLE course (sid INT, homework INT, project INT, exam INT, grade STR20)
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
-SELECT * FROM course
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 0, 100, 100, "E")
-SELECT * FROM course
 INSERT INTO course (sid, grade, exam, project, homework) VALUES (3, "E", 100, 100, 100)
-SELECT * FROM course
-INSERT INTO course (sid, homework, project, exam, grade) SELECT * FROM course
-SELECT * FROM course
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (1, 99, 100, 100, "A")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 100, 98, "C")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (3, 100, 69, 64, "C")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (15, 100, 50, 90, "E")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (15, 100, 99, 100, "E")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (17, 100, 100, 100, "A")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (2, 100, 100, 99, "B")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 100, 100, 97, "D")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (5, 100, 100, 66, "A")
+INSERT INTO course (sid, homework, project, exam, grade) VALUES (6, 100, 100, 65, "B")
+SELECT sid, course.homework, grade FROM course WHERE grade = "A" ORDER BY homework
+exit
 DELETE FROM course WHERE grade = "E"
 SELECT * FROM course
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 99, 100, 100, "B")

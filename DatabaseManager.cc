@@ -426,11 +426,11 @@ public:
   }
 
   std::pair<Schema, Schema> createCommonSchema(Relation* small, Relation* large,
-    std::unordered_map<std::string, bool>& selectListMap,
-    std::unordered_map<std::string, bool>& projListMap,
-    std::unordered_map<int, int>& smallToIn,
-    std::unordered_map<int, int>& largeToIn,
-    std::unordered_map<int, int>& inToOut) {
+      std::unordered_map<std::string, bool>& selectListMap,
+      std::unordered_map<std::string, bool>& projListMap,
+      std::unordered_map<int, int>& smallToIn,
+      std::unordered_map<int, int>& largeToIn,
+      std::unordered_map<int, int>& inToOut) {
     std::string smallRelationName = small->getRelationName();
     std::string largeRelationName = large->getRelationName();
     Schema smallSchema = schema_manager.getSchema(smallRelationName);
@@ -506,9 +506,143 @@ public:
     std::cout << std::endl;
   }
 
+  Relation* tableScanWithCondition(std::string& relName,
+      ParseTreeNode* postFixExpr, std::vector<int>& returnMemBlockIndices,
+      std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+    Relation* rel = schema_manager.getRelation(relName);
+    int numBlocksInRel = rel->getNumOfBlocks();
+
+    Schema curSchema = rel->getSchema();
+    std::vector<std::string> curFieldNames = curSchema.getFieldNames();
+    std::vector<enum FIELD_TYPE> curFieldTypes = curSchema.getFieldTypes();
+
+    std::vector<std::string> outFieldNames;
+    std::vector<enum FIELD_TYPE> outFieldTypes;
+
+    vector<int> oldToOut;
+    bool hasStar = false;
+    if (projListMap.find("*") != projListMap.end()) {
+      hasStar = true;
+    }
+    for (int i = 0; i < curFieldNames.size(); ++i) {
+      if (hasStar || projListMap.find(curFieldNames[i]) != projListMap.end()) {
+        oldToOut.push_back(i);
+        outFieldNames.push_back(curFieldNames[i]);
+        outFieldTypes.push_back(curFieldTypes[i]);
+      }
+    }
+
+    Schema outSchema(outFieldNames, outFieldTypes);
+    std::cout << "Output Schema" << std::endl;
+    std::cout << outSchema << std::endl;
+
+    std::string outRelName = relName + "_out_tmp";
+    Relation* outRel = schema_manager.createRelation(outRelName, outSchema);
+    relName = outRelName;
+
+    bool allInMemory = true;
+    std::vector<int> curMemBlockIndices;
+
+    int inMemBlockIndex = mManager.getFreeBlockIndex();
+    if (inMemBlockIndex == -1) {
+      return nullptr;
+    }
+    Block* inMemBlockPtr = mem->getBlock(inMemBlockIndex);
+
+    int curMemBlockIndex = mManager.getFreeBlockIndex();
+    if (curMemBlockIndex == -1) {
+      return nullptr;
+    }
+    Block* curMemBlockPtr = mem->getBlock(curMemBlockIndex);
+    curMemBlockIndices.push_back(curMemBlockIndex);
+
+    ConditionEvaluator eval;
+    if (postFixExpr != nullptr) {
+      eval.initialize(postFixExpr, rel);
+    }
+
+    if (!storeOutput) {
+      printFieldNames(outSchema);
+    }
+
+    for (int i = 0; i < numBlocksInRel; ++i) {
+      rel->getBlock(i, inMemBlockIndex);
+      std::vector<Tuple> curTuples = inMemBlockPtr->getTuples();
+      std::vector<Tuple> outTuples;
+
+      for (int j = 0; j < curTuples.size(); ++j) {
+        bool ans = true;
+        // condition evaluator
+        if (postFixExpr != nullptr) {
+          ans = eval.evaluate(curTuples[j]);
+        }
+
+        if (ans) {
+          Tuple outTuple = outRel->createTuple();
+          for (int k = 0; k < oldToOut.size(); ++k) {
+            if (curFieldTypes[oldToOut[k]] == INT) {
+              outTuple.setField(k, curTuples[j].getField(oldToOut[k]).integer);
+            } else {
+              outTuple.setField(k, *(curTuples[j].getField(oldToOut[k]).str));
+            }
+          }
+          outTuples.push_back(outTuple);
+          // create new Tuple according to Projection List
+          // push newTuple to newTuples
+        }
+      }
+
+      for (int j = 0; j < outTuples.size(); ++j) {
+        if (storeOutput) {
+          if (!appendTupleToMemBlock(curMemBlockPtr, outTuples[j])) {
+            curMemBlockIndex = mManager.getFreeBlockIndex();
+            if (curMemBlockIndex == -1) {
+              for (int k = 0; k < curMemBlockIndices.size(); ++k) {
+                if (storeOutput) {
+                  // output this block to newRelation
+                } else {
+                  Block* curBlock = mem->getBlock(curMemBlockIndices[k]);
+                  std::vector<Tuple> tuplesInThisBlock = curBlock->getTuples();
+                  for (int l = 0; l < tuplesInThisBlock.size(); ++l) {
+                    // print the tuple
+                  }
+                }
+              }
+              allInMemory = false;
+              mManager.releaseNBlocks(curMemBlockIndices);
+              curMemBlockIndices.clear();
+              curMemBlockIndex = mManager.getFreeBlockIndex();
+              if (curMemBlockIndex == -1) {
+                return nullptr;
+              }
+            }
+            curMemBlockPtr = mem->getBlock(curMemBlockIndex);
+            curMemBlockIndices.push_back(curMemBlockIndex);
+            appendTupleToMemBlock(curMemBlockPtr, outTuples[j]);
+          }
+        } else {
+          std::cout << outTuples[j] << std::endl;
+        }
+      }
+    }
+
+    if (storeOutput) {
+      if (allInMemory) {
+        for (int i = 0; i < curMemBlockIndices.size(); ++i) {
+          returnMemBlockIndices.push_back(curMemBlockIndices[i]);
+        }
+        return nullptr;
+      } else {
+        return rel;
+      }
+    }
+    return nullptr;
+  }
+
+
   Relation* crossJoinWithCondition(std::string rSmall, std::string rLarge,
-    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& selectListMap,
-    std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+      ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& selectListMap,
+      std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
     Relation* small = schema_manager.getRelation(rSmall);
     Relation* large = schema_manager.getRelation(rLarge);
     int small_n = small->getNumOfBlocks();
@@ -542,10 +676,10 @@ public:
     temp_relations.push_back(rIn);
     temp_relations.push_back(rOut);
 
-//    std::cout << "Temp Schema" << endl;
-//    std::cout << inSchema << std::endl;
-//    std::cout << "Out Schema" << endl;
-//    std::cout << outSchema << std::endl;
+    //    std::cout << "Temp Schema" << endl;
+    //    std::cout << inSchema << std::endl;
+    //    std::cout << "Out Schema" << endl;
+    //    std::cout << outSchema << std::endl;
 
     int large_mem_block_index = mManager.getFreeBlockIndex();
     if (large_mem_block_index == -1 ) {
@@ -575,8 +709,8 @@ public:
     }
     // int num_small_in_mem = 0;
 
-//    std::cout << "Small Size: " << small_n << std::endl;
-//    std::cout << "Large Size: " << large_n << std::endl;
+    //    std::cout << "Small Size: " << small_n << std::endl;
+    //    std::cout << "Large Size: " << large_n << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
@@ -721,8 +855,12 @@ public:
 
     std::list<ParseTreeNode*> whereConditions;
 
+    // Create a vector of relation list
+    std::vector<std::string> relationList;
+    Utils::getTableList(root, relationList);
+
     bool foundOrCondition = false;
-    if (hasWhereCondition) {
+    if (hasWhereCondition && relationList.size() > 1) {
       int whereStart = 0;
       int whereEnd = tokens.size();
       for (int i = 0; i < tokens.size(); ++i) {
@@ -761,11 +899,6 @@ public:
       hasDistOrSort = true;
     }
 
-    // Create a vector of relation list
-    std::vector<std::string> relationList;
-    Utils::getTableList(root, relationList);
-
-
     std::unordered_map<std::string, Schema> relSchema;
     for (int i = 0; i < relationList.size(); ++i) {
       relSchema[relationList[i]] = schema_manager.getSchema(relationList[i]);
@@ -783,8 +916,8 @@ public:
 
     for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
       ParseTreeNode* root = (*it);
-//      std::cout << "Print Current Tree--------->" << std::endl;
-//      ParseTreeNode::printParseTree(root);
+      //      std::cout << "Print Current Tree--------->" << std::endl;
+      //      ParseTreeNode::printParseTree(root);
       for (int i = 0; i < root->children.size(); ++i) {
         std::string& val = root->children[i]->value;
         if (allColumns.find(val) != allColumns.end()) {
@@ -797,7 +930,7 @@ public:
     std::unordered_map<std::string, bool> curColumns;
     std::vector<std::string> fieldNames;
 
-    if (hasWhereCondition) {
+    if (hasWhereCondition && relationList.size() > 1) {
       fieldNames = relSchema[rel1].getFieldNames();
       for (int j = 0; j < fieldNames.size(); ++j) {
         std::string col = rel1 + "." + fieldNames[j];
@@ -848,7 +981,7 @@ public:
             curWhereConditionRoot->children.push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, "AND"));
           }
         }
-//        ParseTreeNode::printParseTree(curWhereConditionRoot);
+        //        ParseTreeNode::printParseTree(curWhereConditionRoot);
       }
 
       bool storeOutput = true;
@@ -891,16 +1024,16 @@ public:
         }
       }
 
-//      std::cout << "***********SELECT LIST**************" << std::endl;
-//      for (auto it = curSelectListMap.begin(); it != curSelectListMap.end(); ++it) {
-//        std::cout << (*it).first << std::endl;
-//      }
-//
-//      std::cout << "***********Proj LIST****************" << std::endl;
-//      for (auto it = curProjListMap.begin(); it != curProjListMap.end(); ++it) {
-//        std::cout << (*it).first << std::endl;
-//      }
-//      std::cout << "************************************" << std::endl;
+      //      std::cout << "***********SELECT LIST**************" << std::endl;
+      //      for (auto it = curSelectListMap.begin(); it != curSelectListMap.end(); ++it) {
+      //        std::cout << (*it).first << std::endl;
+      //      }
+      //
+      //      std::cout << "***********Proj LIST****************" << std::endl;
+      //      for (auto it = curProjListMap.begin(); it != curProjListMap.end(); ++it) {
+      //        std::cout << (*it).first << std::endl;
+      //      }
+      //      std::cout << "************************************" << std::endl;
 
       Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curSelectListMap, curProjListMap, storeOutput);
 
@@ -909,13 +1042,32 @@ public:
           return false;
         }
         rel1 = outputRelation->getRelationName();
-//        std:cout << (*outputRelation) << std::endl;
+        //        std:cout << (*outputRelation) << std::endl;
       }
+    }
 
+    std::vector<int> emptyMemBlocks;
+    bool storeOutput = false;
+    if (hasDistOrSort) {
+      storeOutput = true;
+    }
+    if (relationList.size() == 1) {
+      std::unordered_map<std::string, bool> curProjListMap;
+      for (int j = 0; j < selectList.size(); ++j) {
+        std::string dotString = ".";
+        std::size_t found = selectList[j].find(dotString);
+        if (found != std::string::npos) {
+          selectList[j] = selectList[j].substr(found + 1);
+        }
+        curProjListMap[selectList[j]] = true;
+      }
+      Relation* rel = tableScanWithCondition(rel1, whereConditionRoot, emptyMemBlocks, curProjListMap, storeOutput);
+      if (rel != nullptr) {
+        rel1 = rel->getRelationName();
+      }
     }
 
     if (hasDistOrSort) {
-      std::vector<int> emptyMemBlocks;
       if (hasDistinct && hasOrderBy) {
         Relation* rel;
         rel = removeDuplicates(rel1, sortColName, emptyMemBlocks, true);
@@ -933,47 +1085,7 @@ public:
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
-    bool ans;
-    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
-    bool hasDistinct = false, hasOrderBy = false;
-    int order_index;
-
-    if(root->children.size() > index + 1) {
-      hasDistinct = true;
-      order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
-      if(root->children.size() > order_index + 1) {
-        hasOrderBy = true;
-      }
-    }
-
-    if(root->children[index]->children.size() == 1) {
-      std::vector<Tuple> tuples;
-      std::vector<int> blocks;
-
-      processSelectSingleTable(root, tuples, false);
-      
-      Relation* temp = schema_manager.createRelation("tempRelation", tuples[0].getSchema());
-      temp_relations.push_back("tempRelation");
-      insertTuplesIntoTable("tempRelation", tuples);
-      
-      if(hasDistinct && hasOrderBy) {
-        Relation* rel = removeDuplicates("tempRelation",root->children[order_index + 2]->value, blocks, true);
-        mManager.releaseNBlocks(blocks);
-        return true;
-      } else if(hasDistinct) {
-        Relation* rel = removeDuplicates("tempRelation",tuples[0].getSchema().getFieldName(0), blocks, true);
-        mManager.releaseNBlocks(blocks);
-        return true;
-      } else if(hasOrderBy) {
-        Relation* rel = ourSort("tempRelation",root->children[order_index + 2]->value, blocks, true);
-        mManager.releaseNBlocks(blocks);
-        return true;
-      }
-      ans = processSelectSingleTable(root, tuples, true); 
-    }
-    else
-      ans = processSelectMultiTable(root);
-    return ans;
+    return processSelectMultiTable(root);
   }
 
   //assuming tuples have same schema
@@ -1027,7 +1139,7 @@ public:
     Relation* ret_rel;
     if(print)
       printFieldNames(schema_manager.getRelation(relation_name)->getSchema());
-//if(false) {
+    //if(false) {
     if(mem_block_indices.size() > 0) {
       ret_rel = removeDuplicatesMemory(relation_name, column_name, mem_block_indices, print);
       if(!print)
@@ -1055,14 +1167,14 @@ public:
     seen_distinct_tuples.insert(convertTupleToString(tuple));
     Schema s = tuple.getSchema();
     union Field cur_comparing_col = tuple.getField(column_name);
-   
+
     if(!print) {
       output->appendTuple(tuple);
     }
     else {
       std::cout << tuple << std::endl;
     }
-   
+
     {
       std::vector<Tuple> tuples = mem_block_0->getTuples(); 
       for(int j = 1; j < tuples.size(); j++) {
@@ -1180,9 +1292,9 @@ public:
         i_mem_block_indices.push_back(free_block_index);
         orig_rel->getBlock(j, free_block_index);
       }
-        //sort in memory
+      //sort in memory
       sortMemory(relation_name, column_name, i_mem_block_indices, false);
-        //write it to sublist_rel
+      //write it to sublist_rel
       int index = 0;
       for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
         sublist_rel->setBlock(j, i_mem_block_indices[index++]);
@@ -1192,7 +1304,7 @@ public:
       //release
       mManager.releaseNBlocks(i_mem_block_indices);
     }
-    
+
     //clear whole memory
     for(int i = 0; i < mem->getMemorySize(); i++)
       mem->getBlock(i)->clear();
@@ -1311,26 +1423,26 @@ public:
   }
 
   //main sort function
-Relation* ourSort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
-  Relation* ret_rel;
-  if(print)
-    printFieldNames(schema_manager.getRelation(relation_name)->getSchema());
+  Relation* ourSort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    Relation* ret_rel;
+    if(print)
+      printFieldNames(schema_manager.getRelation(relation_name)->getSchema());
     //if(false) {
-  if(mem_block_indices.size() > 0) {
-    sortMemory(relation_name, column_name, mem_block_indices, print);
-    return nullptr;
-  }
-  else {
-    ret_rel = sortRelation(relation_name, column_name, mem_block_indices, print);
-    if(mem_block_indices.size() > 0)
+    if(mem_block_indices.size() > 0) {
+      sortMemory(relation_name, column_name, mem_block_indices, print);
       return nullptr;
+    }
+    else {
+      ret_rel = sortRelation(relation_name, column_name, mem_block_indices, print);
+      if(mem_block_indices.size() > 0)
+        return nullptr;
+    }
+    return ret_rel;
   }
-  return ret_rel;
-}
 
   //sortMemory function
-void sortMemory(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
-  int blocks = mem_block_indices.size();
+  void sortMemory(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    int blocks = mem_block_indices.size();
     int tuples_per_block = (mem->getBlock(mem_block_indices[0]))->getNumTuples(); //max tuples per block
     int j = 0;
     int n = (blocks - 1) * tuples_per_block;
@@ -1391,9 +1503,9 @@ void sortMemory(std::string relation_name, std::string column_name, std::vector<
         i_mem_block_indices.push_back(free_block_index);
         orig_rel->getBlock(j, free_block_index);
       }
-        //sort in memory
+      //sort in memory
       sortMemory(relation_name, column_name, i_mem_block_indices, false);
-        //write it to sublist_rel
+      //write it to sublist_rel
       int index = 0;
       for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
         sublist_rel->setBlock(j, i_mem_block_indices[index++]);
@@ -1403,7 +1515,7 @@ void sortMemory(std::string relation_name, std::string column_name, std::vector<
       //release
       mManager.releaseNBlocks(i_mem_block_indices);
     }
-    
+
     //clear whole memory
     for(int i = 0; i < mem->getMemorySize(); i++)
       mem->getBlock(i)->clear();
