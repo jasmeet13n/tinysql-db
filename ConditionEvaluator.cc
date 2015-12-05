@@ -86,7 +86,7 @@ public:
       FIELD_TYPE field_type = schema.getFieldType(i);
       // std::cout << (field_type == INT ? "INT" : "STR20") << "\n";
       field_map[fields[i]] = std::make_pair(i, field_type);
-      // field_map[table_name + "." + fields[i]] = std::make_pair(i, field_type);
+      field_map[table_name + "." + fields[i]] = std::make_pair(i, field_type);
     }
 
     // Creating a postfix vector with Factor class.
