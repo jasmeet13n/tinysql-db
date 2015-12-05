@@ -206,6 +206,7 @@ public:
 
     if(isSelectStar) {
       field_names = s.getFieldNames();
+      field_types = s.getFieldTypes();
     } else {
       for (int i = 0; i < field_names.size(); ++i) {
         int index = s.getFieldOffset(field_names[i]);
@@ -213,6 +214,10 @@ public:
         field_types.push_back(s.getFieldType(index));
       }
     }
+
+    Schema notStarSchema(field_names, field_types);
+    Relation* notStarRelation = schema_manager.createRelation("notStarRelation", notStarSchema);
+    temp_relations.push_back("notStarRelation");
 
     if(print) {
       for(int i = 0; i < field_names.size(); i++) {
@@ -245,7 +250,7 @@ public:
           else
             insert_tuples.push_back(tuples[j]);
         } else {
-          Tuple temp_tuple = r->createTuple();
+          Tuple temp_tuple = notStarRelation->createTuple();
           for (int k = 0; k < field_indices.size(); ++k) {
             if (field_types[k] == INT) {
               if(print) 
@@ -912,13 +917,15 @@ public:
     if (hasDistOrSort) {
       std::vector<int> emptyMemBlocks;
       if (hasDistinct && hasOrderBy) {
-
+        Relation* rel;
+        rel = removeDuplicates(rel1, sortColName, emptyMemBlocks, true);
       } else if (hasOrderBy) {
         Relation* rel;
         rel = ourSort(rel1, sortColName, emptyMemBlocks, true);
       } else if (hasDistinct) {
-        // Relation* rel;
-        // rel = removeDuplicates(rel1, "r.a", emptyMemBlocks, true);
+        //std::cout << *schema_manager.getRelation(rel1) << std::endl;
+        Relation* rel;
+        rel = removeDuplicates(rel1, schema_manager.getRelation(rel1)->getSchema().getFieldName(0), emptyMemBlocks, true);
       }
     }
 
@@ -928,35 +935,41 @@ public:
   bool processSelectStatement(ParseTreeNode* root) {
     bool ans;
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+    bool hasDistinct = false, hasOrderBy = false;
+    int order_index;
+
+    if(root->children.size() > index + 1) {
+      hasDistinct = true;
+      order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
+      if(root->children.size() > order_index + 1) {
+        hasOrderBy = true;
+      }
+    }
+
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
-      //removeDuplicates test
       std::vector<int> blocks;
-      Relation* rel = removeDuplicates(root->children[index]->children[0]->value,
-        "a", blocks, true);
-      return true;
-      //order by 
-      if(root->children.size() > index + 1) {
-        int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
-        if(root->children.size() > order_index + 1) {
-          processSelectSingleTable(root, tuples, false);
-          
-          Relation* temp = schema_manager.createRelation("tempRelation", tuples[0].getSchema());
-          temp_relations.push_back("tempRelation");
 
-          insertTuplesIntoTable("tempRelation", tuples);
-          int num_free_mem_blocks = mManager.numFreeBlocks();
-          int num_blocks_req = tuples.size() / tuples[0].getTuplesPerBlock();
-          //if(false) {
-          std::vector<int> mem_block_indices;
-          // can't fit in main memory
-          Relation* temp_rel = ourSort("tempRelation", root->children[order_index + 2]->value, mem_block_indices, true);
-          mManager.releaseNBlocks(mem_block_indices);
-          return true;
-          //mManager.releaseNBlocks(mem_blocks);
-        }
-        ans = processSelectSingleTable(root, tuples, true);
-      } 
+      processSelectSingleTable(root, tuples, false);
+      
+      Relation* temp = schema_manager.createRelation("tempRelation", tuples[0].getSchema());
+      temp_relations.push_back("tempRelation");
+      insertTuplesIntoTable("tempRelation", tuples);
+      
+      if(hasDistinct && hasOrderBy) {
+        Relation* rel = removeDuplicates("tempRelation",root->children[order_index + 2]->value, blocks, true);
+        mManager.releaseNBlocks(blocks);
+        return true;
+      } else if(hasDistinct) {
+        Relation* rel = removeDuplicates("tempRelation",tuples[0].getSchema().getFieldName(0), blocks, true);
+        mManager.releaseNBlocks(blocks);
+        return true;
+      } else if(hasOrderBy) {
+        Relation* rel = ourSort("tempRelation",root->children[order_index + 2]->value, blocks, true);
+        mManager.releaseNBlocks(blocks);
+        return true;
+      }
+      ans = processSelectSingleTable(root, tuples, true); 
     }
     else
       ans = processSelectMultiTable(root);
@@ -1047,7 +1060,6 @@ public:
       output->appendTuple(tuple);
     }
     else {
-      printFieldNames(s);
       std::cout << tuple << std::endl;
     }
    
