@@ -1216,8 +1216,10 @@ public:
         if(alldone)
           break;
       }
+      removeTempRelations();
       return final_rel;
     }
+    removeTempRelations();
     return nullptr;
   }
 
@@ -1401,10 +1403,10 @@ public:
           output->clear();
         }
       }
-
+      removeTempRelations();
       return final_rel;
     }
-
+    removeTempRelations();
     return nullptr;
   }
 
