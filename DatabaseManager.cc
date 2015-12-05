@@ -917,7 +917,8 @@ public:
         Relation* rel;
         rel = ourSort(rel1, sortColName, emptyMemBlocks, true);
       } else if (hasDistinct) {
-
+        // Relation* rel;
+        // rel = removeDuplicates(rel1, "r.a", emptyMemBlocks, true);
       }
     }
 
@@ -1011,6 +1012,8 @@ public:
   //main removeDuplicates function
   Relation* removeDuplicates(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
     Relation* ret_rel;
+    if(print)
+      printFieldNames(schema_manager.getRelation(relation_name)->getSchema());
 //if(false) {
     if(mem_block_indices.size() > 0) {
       ret_rel = removeDuplicatesMemory(relation_name, column_name, mem_block_indices, print);
