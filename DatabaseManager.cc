@@ -277,7 +277,47 @@ public:
   }
 
   bool processDeleteStatement(ParseTreeNode* root) {
-    return false;
+    std::string tableName = root->children[2]->value;
+    Relation* rel = schema_manager.getRelation(tableName);
+
+    ConditionEvaluator eval;
+    bool hasToCheckWhere = false;
+    if (root->children.size() > 3) {
+      hasToCheckWhere = true;
+      eval.initialize(root->children[4], rel);
+    }
+
+    int inMemBlockIndex = mManager.getFreeBlockIndex();
+    int outMemBlockIndex = mManager.getFreeBlockIndex();
+    if (inMemBlockIndex == -1 || outMemBlockIndex == -1) {
+      return false;
+    }
+    Block* outMemBlockPtr = mem->getBlock(outMemBlockIndex);
+
+    int writeBlockIndex = 0;
+    int numBlocks = rel->getNumOfBlocks();
+    for (int i = 0; i < numBlocks; ++i) {
+      rel->getBlock(i, inMemBlockIndex);
+      Block* inMemBlockPtr = mem->getBlock(inMemBlockIndex);
+      std::vector<Tuple> tuples = inMemBlockPtr->getTuples();
+      for (int j = 0; j < tuples.size(); ++j) {
+        bool ans = true;
+        if (hasToCheckWhere) {
+          ans = eval.evaluate(tuples[j]);
+        }
+
+        if (ans) {
+          if(!appendTupleToMemBlock(outMemBlockPtr, tuples[j])) {
+            rel->setBlock(writeBlockIndex, outMemBlockIndex);
+            outMemBlockPtr->clear();
+            appendTupleToMemBlock(outMemBlockPtr, tuples[j]);
+            writeBlockIndex++;
+          }
+        }
+      }
+    }
+    rel->deleteBlocks(writeBlockIndex);
+    return true;
   }
 
   void changeAttributeNames(ParseTreeNode* root) {
@@ -863,7 +903,14 @@ public:
     }
 
     if (hasDistOrSort) {
-      // sort
+      std::vector<int> emptyMemBlocks;
+      if (hasDistinct && hasOrderBy) {
+
+      } else if (hasOrderBy) {
+        ourSort(rel1, sortColName, emptyMemBlocks, true);
+      } else if (hasDistinct) {
+
+      }
     }
 
     return true;
