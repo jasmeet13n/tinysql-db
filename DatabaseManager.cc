@@ -914,11 +914,8 @@ public:
       if (hasDistinct && hasOrderBy) {
 
       } else if (hasOrderBy) {
-        std::cout << "calling sort" << std::endl;
         Relation* rel;
-        rel = ourSort(rel1, sortColName, emptyMemBlocks, false);
-        std::cout << "Sort Done" << endl;
-        std::cout << (*rel) << std::endl;
+        rel = ourSort(rel1, sortColName, emptyMemBlocks, true);
       } else if (hasDistinct) {
 
       }
@@ -933,10 +930,10 @@ public:
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
       //removeDuplicates test
-      // std::vector<int> blocks;
-      // Relation* rel = removeDuplicates(root->children[index]->children[0]->value,
-      //   "a", blocks, true);
-      // return true;
+      std::vector<int> blocks;
+      Relation* rel = removeDuplicates(root->children[index]->children[0]->value,
+        "a", blocks, true);
+      return true;
       //order by 
       if(root->children.size() > index + 1) {
         int order_index = root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL ? index + 3 : index + 1;
@@ -1025,13 +1022,13 @@ public:
       if(!print)
         return ret_rel;
     }
-    return ret_rel;
+    return nullptr;
   }
 
   //removeDuplicates in memory function
   Relation* removeDuplicatesMemory(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
     Relation* ret_rel;
-    sortMemory(relation_name, column_name, mem_block_indices, print);
+    sortMemory(relation_name, column_name, mem_block_indices, false);
     int output_block_index = mManager.getFreeBlockIndex();
     if(output_block_index == -1)
       return nullptr;
@@ -1042,6 +1039,7 @@ public:
     seen_distinct_tuples.insert(convertTupleToString(tuple));
     Schema s = tuple.getSchema();
     union Field cur_comparing_col = tuple.getField(column_name);
+   
     if(!print) {
       output->appendTuple(tuple);
     }
@@ -1049,6 +1047,7 @@ public:
       printFieldNames(s);
       std::cout << tuple << std::endl;
     }
+   
     {
       std::vector<Tuple> tuples = mem_block_0->getTuples(); 
       for(int j = 1; j < tuples.size(); j++) {
@@ -1111,6 +1110,168 @@ public:
     return nullptr;
   }
 
+  class HeapElement {
+  public:
+    Field field;
+    enum FIELD_TYPE field_type;
+    int block_index;
+    int tuple_index;
+
+    HeapElement(Field f, enum FIELD_TYPE f_t, int b_i, int t_i) {
+      field = f;
+      field_type = f_t;
+      block_index = b_i;
+      tuple_index = t_i;
+    }
+
+    void printIt() {
+      if(field_type == INT)
+        std::cout << field.integer << "\t" << block_index << "\t" << tuple_index << std::endl;
+    }
+  };
+
+  class myCompare {
+  public:
+    bool operator() (const HeapElement* element1, const HeapElement* element2) {
+      if(element1->field_type == INT) {
+        return element1->field.integer > element2->field.integer;
+      }
+      return *element1->field.str > *element2->field.str;
+    }
+  };
+
+  Relation* removeDuplicatesRelationTwoPass(std::string relation_name, std::string column_name, bool print) {
+    Relation* orig_rel = schema_manager.getRelation(relation_name);
+    Schema schema = orig_rel->getSchema();
+    Relation* sublist_rel = schema_manager.createRelation("sublist_rel", schema);
+    Relation* final_rel = schema_manager.createRelation("final_rel", schema);
+    temp_relations.push_back("sublist_rel");
+    temp_relations.push_back("final_rel");
+    int num_free_mem_blocks = mManager.numFreeBlocks();
+    int rel_num_blocks = orig_rel->getNumOfBlocks();
+    std::vector<std::queue<int>> sublists;
+    int field_offset = schema.getFieldOffset(column_name);
+    enum FIELD_TYPE f_type = schema.getFieldType(field_offset);
+
+    std::unordered_set<std::string> seen_distinct_tuples;
+    union Field cur_comparing_col;
+
+    //create sublists and sublist_rel
+    for(int i = 0; i < rel_num_blocks; i += num_free_mem_blocks) {
+      std::queue<int> curSublist;
+      std::vector<int> i_mem_block_indices;
+      for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
+        int free_block_index = mManager.getFreeBlockIndex();
+        i_mem_block_indices.push_back(free_block_index);
+        orig_rel->getBlock(j, free_block_index);
+      }
+        //sort in memory
+      sortMemory(relation_name, column_name, i_mem_block_indices, false);
+        //write it to sublist_rel
+      int index = 0;
+      for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
+        sublist_rel->setBlock(j, i_mem_block_indices[index++]);
+        curSublist.push(j);
+      }
+      sublists.push_back(curSublist);
+      //release
+      mManager.releaseNBlocks(i_mem_block_indices);
+    }
+    
+    //clear whole memory
+    for(int i = 0; i < mem->getMemorySize(); i++)
+      mem->getBlock(i)->clear();
+
+    int output_block_index = mManager.getFreeBlockIndex();
+    Block* output = mem->getBlock(output_block_index);
+
+    //memory block index to sublist index map
+    std::unordered_map<int, int> mem_to_sublist;
+
+    //vector for heap
+    std::vector<HeapElement*> heap;
+
+    //vector of memory blocks used for sublist's block
+    std::vector<int> mem_blocks_sublist;
+
+    //bring 1 block from each sublist in memory
+    for(int i = 0; i < sublists.size(); i++) {
+      int free_block_index = mManager.getFreeBlockIndex();
+      mem_blocks_sublist.push_back(free_block_index);
+      sublist_rel->getBlock(sublists[i].front(), free_block_index);
+      sublists[i].pop();
+      mem_to_sublist[free_block_index] = i;
+    }
+
+    //create heap of first tuples from each block
+    for(int i = 0; i < mem_blocks_sublist.size(); i++) {
+      Block* block = mem->getBlock(mem_blocks_sublist[i]);
+      Tuple tuple = block->getTuple(0);
+      heap.push_back(new HeapElement(tuple.getField(field_offset), f_type, mem_blocks_sublist[i], 0));
+    }
+
+    std::make_heap(heap.begin(), heap.end(), myCompare());
+
+    cur_comparing_col = heap.front()->field;
+
+    while(heap.size() > 0) {
+      HeapElement* current = heap.front();
+      pop_heap(heap.begin(), heap.end(), myCompare());
+      heap.pop_back();
+
+      int current_block_index = current->block_index;
+      int current_tuple_index = current->tuple_index;
+      Block* mem_block = mem->getBlock(current_block_index);
+      Tuple tuple = mem_block->getTuple(current_tuple_index);
+
+      int seen = false;
+      std::string converted_tuple = convertTupleToString(tuple);
+      if(!seen_distinct_tuples.empty() && seen_distinct_tuples.find(converted_tuple) != seen_distinct_tuples.end())
+        seen = true;
+      if(!seen) {
+        if(!equalFields(f_type, cur_comparing_col, tuple.getField(field_offset))) {
+          cur_comparing_col = tuple.getField(field_offset);
+          seen_distinct_tuples.clear();
+        }
+        output->appendTuple(tuple);
+        seen_distinct_tuples.insert(converted_tuple);
+      }
+      //output->appendTuple(tuple);
+      if(output->isFull()) {
+        if(!print) {
+          final_rel->setBlock(final_rel->getNumOfBlocks(), output_block_index);
+        }
+        else {
+          std::vector<Tuple> output_tuples = output->getTuples();
+          for(int i = 0; i < output_tuples.size(); i++)
+            std::cout << output_tuples[i] << std::endl;
+        }
+        output->clear();
+      }
+
+      //check block done
+      if(current_tuple_index == mem_block->getNumTuples() - 1) {
+        //if sublist not empty
+        int sublist_index = mem_to_sublist[current_block_index];
+        if(!sublists[sublist_index].empty()) {
+          mem_block->clear();
+          sublist_rel->getBlock(sublists[sublist_index].front(), current_block_index);
+          sublists[sublist_index].pop();
+          mem_block = mem->getBlock(current_block_index);
+          heap.push_back(new HeapElement(mem_block->getTuple(0).getField(field_offset), f_type, current_block_index, 0));
+          push_heap(heap.begin(), heap.end(), myCompare());
+        }
+      } else {
+        //push another tuple in heap
+        heap.push_back(new HeapElement(mem_block->getTuple(current_tuple_index + 1).getField(field_offset), f_type, current_block_index, current_tuple_index + 1));
+        push_heap(heap.begin(), heap.end(), myCompare());
+      }
+
+    }
+
+    return final_rel;
+  }
+
   //removeDuplicates for relation function
   Relation* removeDuplicatesRelation(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
     Relation* orig_rel = schema_manager.getRelation(relation_name);
@@ -1130,140 +1291,9 @@ public:
       return nullptr;
     }
     else { //two pass
-      Schema schema = orig_rel->getSchema();
-      Relation* sublist_rel = schema_manager.createRelation("sublist_rel", schema);
-      Relation* final_rel = schema_manager.createRelation("final_rel", schema);
-      temp_relations.push_back("sublist_rel");
-      temp_relations.push_back("final_rel");
-      int num_free_mem_blocks = mManager.numFreeBlocks();
-      int rel_num_blocks = orig_rel->getNumOfBlocks();
-      std::vector<int> sublist_indices;
-
-      //create sublist_rel
-
-      for(int i = 0; i < rel_num_blocks; i += num_free_mem_blocks) {
-        //index of each sublist
-        sublist_indices.push_back(i);
-        std::vector<int> i_mem_block_indices;
-        for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
-          int free_block_index = mManager.getFreeBlockIndex();
-          i_mem_block_indices.push_back(free_block_index);
-          orig_rel->getBlock(j, free_block_index);
-        }
-        //sort in memory
-        sortMemory(relation_name, column_name, i_mem_block_indices, print);
-        //write it to sublist_rel
-        int index = 0;
-        for(int j = i; j < rel_num_blocks && j < i + num_free_mem_blocks; j++) {
-          sublist_rel->setBlock(j, i_mem_block_indices[index++]);
-        }
-        //release
-        mManager.releaseNBlocks(i_mem_block_indices);
-      }
-
-      //clear whole memory
-      for(int i = 0; i < mem->getMemorySize(); i++)
-        mem->getBlock(i)->clear();
-
-      int sublist_to_mem_map[sublist_indices.size()];
-      int sublist_counters[sublist_indices.size()];
-      for(int i = 0; i < sizeof(sublist_counters); i++)
-        sublist_counters[i] = 0;
-      int tuple_index[sublist_indices.size()];
-      for(int i = 0; i < sizeof(tuple_index); i++)
-        tuple_index[i] = 0;
-
-      int output_block_index = mManager.getFreeBlockIndex();
-      Block* output = mem->getBlock(output_block_index);
-      output->clear();
-
-      std::vector<Block*> mem_blocks_sublist;
-      //bring 1 block from each sublist in memory
-      for(int i = 0; i < sublist_indices.size(); i++) {
-        int free_block_index = mManager.getFreeBlockIndex();
-        mem_blocks_sublist.push_back(mem->getBlock(free_block_index));
-        sublist_rel->getBlock(sublist_indices[i], free_block_index);
-        sublist_to_mem_map[i] = free_block_index;
-      }
-
-      int min_tuple_block = 0;
-      int min_tuple_index = 0;
-
-      Tuple min_tuple = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]);
-      cur_comparing_col = min_tuple.getField(column_name);
-
-      while(true) {        
-        min_tuple = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]);
-        
-        Schema s = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]).getSchema();
-        min_tuple_index = tuple_index[min_tuple_block];
-
-        for(int i = 0; i < mem_blocks_sublist.size(); i++) {
-          Tuple tuple = mem_blocks_sublist[i]->getTuple(tuple_index[i]);
-          if(tuple.isNull())
-            continue;
-          Field field1 = min_tuple.getField(column_name);
-          Field field2 = tuple.getField(column_name);
-          if(compareFields(s.getFieldType(column_name), field1, field2) == 1) {
-            min_tuple = tuple;
-            min_tuple_block = i;
-            min_tuple_index = tuple_index[i];
-          }
-        }
-
-        int seen = false;
-        std::string converted_tuple = convertTupleToString(min_tuple);
-        if(seen_distinct_tuples.find(converted_tuple) != seen_distinct_tuples.end())
-          seen = true;
-        if(!seen) {
-          if(!equalFields(s.getFieldType(column_name), cur_comparing_col, min_tuple.getField(column_name))) {
-            cur_comparing_col = min_tuple.getField(column_name);
-            seen_distinct_tuples.clear();
-          }
-          output->appendTuple(min_tuple);
-          seen_distinct_tuples.insert(converted_tuple);
-        }
-        mem_blocks_sublist[min_tuple_block]->nullTuple(min_tuple_index);
-        int max_tuples_per_block = output->getTuple(0).getTuplesPerBlock();
-        tuple_index[min_tuple_block]++;
-        if(tuple_index[min_tuple_block] == max_tuples_per_block) {
-          sublist_counters[min_tuple_block]++;
-          tuple_index[min_tuple_block] = 0;
-          if((min_tuple_block == sublist_indices.size() - 1 && 
-            sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
-            (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1] &&
-              sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks)) {
-            sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], 
-              sublist_to_mem_map[min_tuple_block]);
-        }
-      }
-
-      if(output->isFull()) {
-        final_rel->setBlock(final_rel->getNumOfBlocks(), output_block_index);
-        output->clear();
-      }
-
-      bool alldone = true;
-      for(int i = 0; i < mem_blocks_sublist.size(); i++) {
-        Block* block = mem_blocks_sublist[i];
-        std::vector<Tuple> tuples = block->getTuples();
-        for(int j = 0; j < tuples.size(); j++) {
-          if(!tuples[j].isNull()) {
-            alldone = false;
-            break;
-          }
-        }
-      }
-
-      if(alldone)
-        break;
+      return removeDuplicatesRelationTwoPass(relation_name, column_name, print);
     }
-    removeTempRelations();
-    return final_rel;
   }
-  removeTempRelations();
-  return nullptr;
-}
 
   //main sort function
 Relation* ourSort(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
@@ -1322,57 +1352,7 @@ void sortMemory(std::string relation_name, std::string column_name, std::vector<
         }
       }
     }
-  }  
-
-  //sortRelation function
-  Relation* sortRelation(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
-    //mem_block_indices.size() == 0
-    Relation* orig_rel = schema_manager.getRelation(relation_name);
-    int rel_blocks = orig_rel->getNumOfBlocks();
-    //if(false) {
-    if(rel_blocks <= mManager.numFreeBlocks()) {
-      for(int i = 0; i < rel_blocks; i++) {
-        int free_block_index = mManager.getFreeBlockIndex();
-        orig_rel->getBlock(i, free_block_index);
-        mem_block_indices.push_back(free_block_index);
-      }
-      sortMemory(relation_name, column_name, mem_block_indices, print);
-      return nullptr;
-    }
-    else { //two pass
-      return sortRelationTwoPass(relation_name, column_name, print);
-    }
   }
-
-  class HeapElement {
-  public:
-    Field field;
-    enum FIELD_TYPE field_type;
-    int block_index;
-    int tuple_index;
-
-    HeapElement(Field f, enum FIELD_TYPE f_t, int b_i, int t_i) {
-      field = f;
-      field_type = f_t;
-      block_index = b_i;
-      tuple_index = t_i;
-    }
-
-    void printIt() {
-      if(field_type == INT)
-        std::cout << field.integer << "\t" << block_index << "\t" << tuple_index << std::endl;
-    }
-  };
-
-  class myCompare {
-  public:
-    bool operator() (const HeapElement* element1, const HeapElement* element2) {
-      if(element1->field_type == INT) {
-        return element1->field.integer > element2->field.integer;
-      }
-      return *element1->field.str > *element2->field.str;
-    }
-  };
 
   Relation* sortRelationTwoPass(std::string relation_name, std::string column_name, bool print) {
     Relation* orig_rel = schema_manager.getRelation(relation_name);
@@ -1487,6 +1467,26 @@ void sortMemory(std::string relation_name, std::string column_name, std::vector<
     }
 
     return final_rel;
+  }
+
+  //sortRelation function
+  Relation* sortRelation(std::string relation_name, std::string column_name, std::vector<int>& mem_block_indices, bool print) {
+    //mem_block_indices.size() == 0
+    Relation* orig_rel = schema_manager.getRelation(relation_name);
+    int rel_blocks = orig_rel->getNumOfBlocks();
+    //if(false) {
+    if(rel_blocks <= mManager.numFreeBlocks()) {
+      for(int i = 0; i < rel_blocks; i++) {
+        int free_block_index = mManager.getFreeBlockIndex();
+        orig_rel->getBlock(i, free_block_index);
+        mem_block_indices.push_back(free_block_index);
+      }
+      sortMemory(relation_name, column_name, mem_block_indices, print);
+      return nullptr;
+    }
+    else { //two pass
+      return sortRelationTwoPass(relation_name, column_name, print);
+    }
   }
 
   bool processQuery(std::string& query) {
