@@ -7,6 +7,7 @@
 #include <unordered_set>
 #include <list>
 #include <queue>
+#include <fstream>
 
 #include "./StorageManager/Block.h"
 #include "./StorageManager/Config.h"
@@ -31,6 +32,7 @@ private:
   MemoryManager mManager;
   std::vector<std::string> temp_relations;
   std::vector<std::string> tokens;
+  std::ofstream fout;
 
   bool appendTupleToRelation(Relation* relation_ptr, int memory_block_index, Tuple& tuple) {
     Block* block_ptr;
@@ -84,10 +86,24 @@ private:
     return true;
   }
 
+  void printAndLog(std::string str) {
+    fout << str;
+    cout << str;
+  }
+
+  void printAndLog(Tuple tuple) {
+    tuple.printTuple(fout);
+    tuple.printTuple(std::cout);
+  }
+
 public:
-  DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) {
+  DatabaseManager(MainMemory* m, Disk* d) : schema_manager(m, d), mManager(m) , fout("log.txt", std::ofstream::out) {
     this->mem = m;
     this->disk = d;
+  }
+
+  ~DatabaseManager() {
+    fout.close();
   }
 
   Relation* createTable(ParseTreeNode* root) {
@@ -172,107 +188,51 @@ public:
       insert_tuples.push_back(t);
     }
     else {
-      processSelectSingleTable(root->children[4]->children[0], insert_tuples);
+      //processSelectSingleTable(root->children[4]->children[0], insert_tuples);
+      ParseTreeNode* select_tree_root = root->children[4]->children[0];
+
+      int index = select_tree_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+      
+      std::string relation_name = select_tree_root->children[index]->children[0]->value;
+      
+      ParseTreeNode* postFixExpr = select_tree_root->children.size() > index + 1 ? select_tree_root->children[index + 2] : nullptr;
+      
+      std::vector<int> returnMemBlockIndices;
+
+      std::unordered_map<std::string, bool> projListMap;
+      std::vector<std::string> selectList;
+      Utils::getSelectList(select_tree_root, selectList);
+
+      for(int i = 0; i < selectList.size(); i++) {
+        projListMap[selectList[i]] = true;
+      }
+
+      bool storeOutput = true;
+      
+      Relation *rel = tableScanWithCondition(relation_name, postFixExpr, returnMemBlockIndices, projListMap, storeOutput);
+      if(rel == nullptr) {
+        for(int i = 0; i < returnMemBlockIndices.size(); i++) {
+          Block* block = mem->getBlock(returnMemBlockIndices[i]);
+          std::vector<Tuple> tuples = block->getTuples();
+          for(int j = 0; j < tuples.size(); j++) {
+            insert_tuples.push_back(tuples[j]);
+          }
+        }
+      }
+      else {
+        for(int i = 0; i < rel->getNumOfBlocks(); i++) {
+          int free_block_index = mManager.getFreeBlockIndex();
+          rel->getBlock(i, free_block_index);
+          Block* mem_block = mem->getBlock(free_block_index);
+          std::vector<Tuple> tuples = mem_block->getTuples();
+          for(int j = 0; j < tuples.size(); j++) {
+            insert_tuples.push_back(tuples[j]);
+          }
+        }
+      }
     }
 
     return insertTuplesIntoTable(table_name, insert_tuples);
-  }
-
-  bool processSelectSingleTable(ParseTreeNode* root, std::vector<Tuple>& insert_tuples, bool print=false) {
-    //Only for single table in table-list
-    int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
-    std::string table_name = root->children[index]->children[0]->value;
-    Relation* r = schema_manager.getRelation(table_name);
-    if(r == nullptr)
-      return false;
-
-    // Get a memory block
-    int free_block_index = mManager.getFreeBlockIndex();
-    if (free_block_index == -1) {
-      return false;
-    }
-
-    std::vector<std::string> field_names;
-    std::vector<enum FIELD_TYPE> field_types;
-    std::vector<int> field_indices;
-
-    Utils::getSelectList(root, field_names);
-    const Schema& s = schema_manager.getSchema(table_name);
-
-    bool isSelectStar = false;
-    if (field_names[0] == "*") {
-      isSelectStar = true;
-    }
-
-    if(isSelectStar) {
-      field_names = s.getFieldNames();
-      field_types = s.getFieldTypes();
-    } else {
-      for (int i = 0; i < field_names.size(); ++i) {
-        int index = s.getFieldOffset(field_names[i]);
-        field_indices.push_back(index);
-        field_types.push_back(s.getFieldType(index));
-      }
-    }
-
-    Schema notStarSchema(field_names, field_types);
-    Relation* notStarRelation = schema_manager.createRelation("notStarRelation", notStarSchema);
-    temp_relations.push_back("notStarRelation");
-
-    if(print) {
-      for(int i = 0; i < field_names.size(); i++) {
-        std::cout << field_names[i] << "\t";
-      }
-      std::cout << std::endl;
-    }
-
-    ConditionEvaluator eval;
-    if (root->children.size() > 5 && root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL)
-      eval.initialize(root->children[index+2], r);
-
-    for(int i = 0; i < r->getNumOfBlocks(); i++) {
-      r->getBlock(i, free_block_index);
-      Block* block_ptr = mem->getBlock(free_block_index);
-      std::vector<Tuple> tuples = block_ptr->getTuples();
-
-      for (int j = 0; j < tuples.size(); ++j) {
-        if (root->children.size() > 5 && root->children[index+1]->type == NODE_TYPE::WHERE_LITERAL) {
-          bool ans = eval.evaluate(tuples[j]);
-          if (ans == false) {
-            continue;
-          }
-          //std::cout << (ans == true? "TRUE" : "FALSE") << std::endl;
-        }
-
-        if (isSelectStar) {
-          if(print) 
-            std::cout << tuples[j] << std::endl;
-          else
-            insert_tuples.push_back(tuples[j]);
-        } else {
-          Tuple temp_tuple = notStarRelation->createTuple();
-          for (int k = 0; k < field_indices.size(); ++k) {
-            if (field_types[k] == INT) {
-              if(print) 
-                std::cout << tuples[j].getField(field_indices[k]).integer << "\t";
-              else
-                temp_tuple.setField(k, tuples[j].getField(field_indices[k]).integer);
-            } else {
-              if(print)
-                std::cout << *(tuples[j].getField(field_indices[k]).str) << "\t";
-              else
-                temp_tuple.setField(k, *(tuples[j].getField(field_indices[k]).str));
-            }
-          }
-          if(print)
-            std::cout << std::endl;
-          else
-            insert_tuples.push_back(temp_tuple);
-        }
-      }
-    }
-    mManager.releaseBlock(free_block_index);
-    return true;
   }
 
   void removeTempRelations() {
@@ -372,7 +332,8 @@ public:
       Block* block = mem->getBlock(mem_block_indices[i]);
       std::vector<Tuple> tuples = block->getTuples();
       for(int j = 0; j < tuples.size(); j++) {
-        std::cout << tuples[j] << std::endl;
+        printAndLog(tuples[j]);
+        printAndLog("\n");
       }
     }
   }
@@ -501,9 +462,9 @@ public:
     std::vector<std::string> field_names;
     field_names = schema.getFieldNames();
     for(int i = 0; i < field_names.size(); i++) {
-      std::cout << field_names[i] << "\t";
+      printAndLog(field_names[i]+"\t");
     }
-    std::cout << std::endl;
+    printAndLog("\n");
   }
 
   Relation* tableScanWithCondition(std::string& relName,
@@ -620,7 +581,8 @@ public:
             appendTupleToMemBlock(curMemBlockPtr, outTuples[j]);
           }
         } else {
-          std::cout << outTuples[j] << std::endl;
+          printAndLog(outTuples[j]);
+          printAndLog("\n");
         }
       }
     }
@@ -679,11 +641,6 @@ public:
     temp_relations.push_back(rIn);
     temp_relations.push_back(rOut);
 
-    //    std::cout << "Temp Schema" << endl;
-    //    std::cout << inSchema << std::endl;
-    //    std::cout << "Out Schema" << endl;
-    //    std::cout << outSchema << std::endl;
-
     int large_mem_block_index = mManager.getFreeBlockIndex();
     if (large_mem_block_index == -1 ) {
       return nullptr;
@@ -711,9 +668,6 @@ public:
       return nullptr;
     }
     // int num_small_in_mem = 0;
-
-    //    std::cout << "Small Size: " << small_n << std::endl;
-    //    std::cout << "Large Size: " << large_n << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
@@ -799,7 +753,8 @@ public:
                     appendTupleToMemBlock(output_mem_block_ptr, outTuple);
                   }
                 } else {
-                  std::cout << outTuple << std::endl;
+                  printAndLog(outTuple);
+                  printAndLog("\n");
                 }
               }
             }
@@ -919,8 +874,6 @@ public:
 
     for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
       ParseTreeNode* root = (*it);
-      //      std::cout << "Print Current Tree--------->" << std::endl;
-      //      ParseTreeNode::printParseTree(root);
       for (int i = 0; i < root->children.size(); ++i) {
         std::string& val = root->children[i]->value;
         if (allColumns.find(val) != allColumns.end()) {
@@ -1027,17 +980,6 @@ public:
         }
       }
 
-      //      std::cout << "***********SELECT LIST**************" << std::endl;
-      //      for (auto it = curSelectListMap.begin(); it != curSelectListMap.end(); ++it) {
-      //        std::cout << (*it).first << std::endl;
-      //      }
-      //
-      //      std::cout << "***********Proj LIST****************" << std::endl;
-      //      for (auto it = curProjListMap.begin(); it != curProjListMap.end(); ++it) {
-      //        std::cout << (*it).first << std::endl;
-      //      }
-      //      std::cout << "************************************" << std::endl;
-
       Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curSelectListMap, curProjListMap, storeOutput);
 
       if (storeOutput) {
@@ -1045,7 +987,6 @@ public:
           return false;
         }
         rel1 = outputRelation->getRelationName();
-        //        std:cout << (*outputRelation) << std::endl;
       }
     }
 
@@ -1078,7 +1019,6 @@ public:
         Relation* rel;
         rel = ourSort(rel1, sortColName, emptyMemBlocks, true);
       } else if (hasDistinct) {
-        //std::cout << *schema_manager.getRelation(rel1) << std::endl;
         Relation* rel;
         rel = removeDuplicates(rel1, schema_manager.getRelation(rel1)->getSchema().getFieldName(0), emptyMemBlocks, true);
       }
@@ -1175,7 +1115,8 @@ public:
       output->appendTuple(tuple);
     }
     else {
-      std::cout << tuple << std::endl;
+      printAndLog(tuple);
+      printAndLog("\n");
     }
 
     {
@@ -1201,7 +1142,8 @@ public:
             output->appendTuple(tuple);
           }
           else {
-            std::cout << tuple << std::endl;
+            printAndLog(tuple);
+            printAndLog("\n");
           }
         }
       }
@@ -1230,7 +1172,8 @@ public:
             output->appendTuple(tuple);
           }
           else {
-            std::cout << tuple << std::endl;
+            printAndLog(tuple);
+            printAndLog("\n");
           }
         }
       }
@@ -1254,10 +1197,6 @@ public:
       tuple_index = t_i;
     }
 
-    void printIt() {
-      if(field_type == INT)
-        std::cout << field.integer << "\t" << block_index << "\t" << tuple_index << std::endl;
-    }
   };
 
   class myCompare {
@@ -1373,8 +1312,10 @@ public:
         }
         else {
           std::vector<Tuple> output_tuples = output->getTuples();
-          for(int i = 0; i < output_tuples.size(); i++)
-            std::cout << output_tuples[i] << std::endl;
+          for(int i = 0; i < output_tuples.size(); i++) {
+            printAndLog(output_tuples[i]);
+            printAndLog("\n");
+          }
         }
         output->clear();
       }
@@ -1478,7 +1419,8 @@ public:
         Block* block = mem->getBlock(mem_block_indices[i]);
         std::vector<Tuple> tuples = block->getTuples();
         for(int j = 0; j < tuples.size(); j++) {
-          std::cout << tuples[j] << std::endl;
+          printAndLog(tuples[j]);
+          printAndLog("\n");
         }
       }
     }
@@ -1570,8 +1512,10 @@ public:
         }
         else {
           std::vector<Tuple> output_tuples = output->getTuples();
-          for(int i = 0; i < output_tuples.size(); i++)
-            std::cout << output_tuples[i] << std::endl;
+          for(int i = 0; i < output_tuples.size(); i++) {
+            printAndLog(output_tuples[i]);
+            printAndLog("\n");
+          }
         }
         output->clear();
       }
@@ -1625,8 +1569,8 @@ public:
 
     bool result = false;
 
-    std::cout << "********************************************" << std::endl;
-    std::cout << "Q>"<< query << std::endl;
+    printAndLog("********************************************\n");
+    printAndLog("Q>"+query+"\n");
     ParseTreeNode* root = Parser::parseQuery(query, tokens);
     if (root == nullptr) {
       return false;
@@ -1644,8 +1588,8 @@ public:
       result = processDeleteStatement(root);
     }
 
-    std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
-    std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+    printAndLog("Disk I/O: " + std::to_string(disk->getDiskIOs()) + "\n");
+    printAndLog("Execution Time: " + std::to_string(disk->getDiskTimer()) + " ms\n");
 
     mManager.releaseAllBlocks();
     removeTempRelations();
