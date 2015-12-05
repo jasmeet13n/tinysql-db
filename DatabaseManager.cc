@@ -172,7 +172,48 @@ public:
       insert_tuples.push_back(t);
     }
     else {
-      processSelectSingleTable(root->children[4]->children[0], insert_tuples);
+      //processSelectSingleTable(root->children[4]->children[0], insert_tuples);
+      ParseTreeNode* select_tree_root = root->children[4]->children[0];
+
+      int index = select_tree_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
+      
+      std::string relation_name = select_tree_root->children[index]->children[0]->value;
+      
+      ParseTreeNode* postFixExpr = select_tree_root->children.size() > index + 1 ? select_tree_root->children[index + 2] : nullptr;
+      
+      std::vector<int> returnMemBlockIndices;
+
+      std::unordered_map<std::string, bool> projListMap;
+      std::vector<std::string> selectList;
+      Utils::getSelectList(select_tree_root, selectList);
+
+      for(int i = 0; i < selectList.size(); i++) {
+        projListMap[selectList[i]] = true;
+      }
+
+      bool storeOutput = true;
+      
+      Relation *rel = tableScanWithCondition(relation_name, postFixExpr, returnMemBlockIndices, projListMap, storeOutput);
+      if(rel == nullptr) {
+        for(int i = 0; i < returnMemBlockIndices.size(); i++) {
+          Block* block = mem->getBlock(returnMemBlockIndices[i]);
+          std::vector<Tuple> tuples = block->getTuples();
+          for(int j = 0; j < tuples.size(); j++) {
+            insert_tuples.push_back(tuples[j]);
+          }
+        }
+      }
+      else {
+        for(int i = 0; i < rel->getNumOfBlocks(); i++) {
+          int free_block_index = mManager.getFreeBlockIndex();
+          rel->getBlock(i, free_block_index);
+          Block* mem_block = mem->getBlock(free_block_index);
+          std::vector<Tuple> tuples = mem_block->getTuples();
+          for(int j = 0; j < tuples.size(); j++) {
+            insert_tuples.push_back(tuples[j]);
+          }
+        }
+      }
     }
 
     return insertTuplesIntoTable(table_name, insert_tuples);
