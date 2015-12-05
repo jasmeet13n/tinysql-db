@@ -270,7 +270,9 @@ public:
   }
 
   void removeTempRelations() {
+    std::cout << "Relations being deleted" << endl;
     for(int i = 0; i < temp_relations.size(); i++) {
+      std::cout << temp_relations[i] << endl;
       schema_manager.deleteRelation(temp_relations[i]);
     }
     temp_relations.clear();
@@ -526,10 +528,13 @@ public:
     std::string rOut = rSmall + "_" + rLarge;
     Relation* outRelation = schema_manager.createRelation(rOut, outSchema);
 
-    std::cout << "Temp Schema" << endl;
-    std::cout << inSchema << std::endl;
-    std::cout << "Out Schema" << endl;
-    std::cout << outSchema << std::endl;
+    temp_relations.push_back(rIn);
+    temp_relations.push_back(rOut);
+
+//    std::cout << "Temp Schema" << endl;
+//    std::cout << inSchema << std::endl;
+//    std::cout << "Out Schema" << endl;
+//    std::cout << outSchema << std::endl;
 
     int large_mem_block_index = mManager.getFreeBlockIndex();
     if (large_mem_block_index == -1 ) {
@@ -559,8 +564,8 @@ public:
     }
     // int num_small_in_mem = 0;
 
-    std::cout << "Small Size: " << small_n << std::endl;
-    std::cout << "Large Size: " << large_n << std::endl;
+//    std::cout << "Small Size: " << small_n << std::endl;
+//    std::cout << "Large Size: " << large_n << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
@@ -666,8 +671,6 @@ public:
     mManager.releaseNBlocks(small_mem_block_indices);
 
     if(storeOutput) {
-      temp_relations.push_back(rIn);
-      temp_relations.push_back(rOut);
       return outRelation;
     }
     return nullptr;
@@ -769,8 +772,8 @@ public:
 
     for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
       ParseTreeNode* root = (*it);
-      std::cout << "Print Current Tree--------->" << std::endl;
-      ParseTreeNode::printParseTree(root);
+//      std::cout << "Print Current Tree--------->" << std::endl;
+//      ParseTreeNode::printParseTree(root);
       for (int i = 0; i < root->children.size(); ++i) {
         std::string& val = root->children[i]->value;
         if (allColumns.find(val) != allColumns.end()) {
@@ -825,8 +828,6 @@ public:
         }
 
         if (curWhereConditions.size() > 0) {
-          cout << "greater than zero" << endl;
-          cout.flush();
           curWhereConditionRoot = curWhereConditions[0];
           for (int j = 1; j < curWhereConditions.size(); ++j) {
             ParseTreeNode* curRoot = curWhereConditions[j];
@@ -836,7 +837,7 @@ public:
             curWhereConditionRoot->children.push_back(new ParseTreeNode(NODE_TYPE::POSTFIX_OPERATOR, "AND"));
           }
         }
-        ParseTreeNode::printParseTree(curWhereConditionRoot);
+//        ParseTreeNode::printParseTree(curWhereConditionRoot);
       }
 
       bool storeOutput = true;
@@ -897,7 +898,7 @@ public:
           return false;
         }
         rel1 = outputRelation->getRelationName();
-        std:cout << (*outputRelation) << std::endl;
+//        std:cout << (*outputRelation) << std::endl;
       }
 
     }
@@ -907,7 +908,11 @@ public:
       if (hasDistinct && hasOrderBy) {
 
       } else if (hasOrderBy) {
-        ourSort(rel1, sortColName, emptyMemBlocks, true);
+        std::cout << "calling sort" << std::endl;
+        Relation* rel;
+        rel = ourSort(rel1, sortColName, emptyMemBlocks, false);
+        std::cout << "Sort Done" << endl;
+        std::cout << (*rel) << std::endl;
       } else if (hasDistinct) {
 
       }
@@ -917,6 +922,7 @@ public:
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
+    bool ans;
     int index = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
     if(root->children[index]->children.size() == 1) {
       std::vector<Tuple> tuples;
@@ -963,11 +969,11 @@ public:
           return true;
         }
       }
-      return processSelectSingleTable(root, tuples, true);
+      ans = processSelectSingleTable(root, tuples, true);
     } else {
-      return processSelectMultiTable(root);
+      ans = processSelectMultiTable(root);
     }
-    return false;
+    return ans;
   }
 
   //assuming tuples have same schema
@@ -1484,6 +1490,7 @@ public:
 
     std::cout << "Disk I/O: " << disk->getDiskIOs() << std::endl;
     std::cout << "Execution Time: " << disk->getDiskTimer() << " ms" << std::endl;
+    removeTempRelations();
     return result;
   }
 };
