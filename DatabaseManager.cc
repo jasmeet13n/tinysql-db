@@ -372,49 +372,76 @@ public:
     return 0;
   }
 
-  Schema createCommonSchema(Relation* small, Relation* large, std::unordered_map<std::string, bool>& projListMap,
-    std::unordered_map<int, int>& small_to_new, std::unordered_map<int, int>& large_to_new) {
-    std::string small_relation_name = small->getRelationName();
-    std::string large_relation_name = large->getRelationName();
-    Schema small_schema = schema_manager.getSchema(small_relation_name);
-    Schema large_schema = schema_manager.getSchema(large_relation_name);
-    std::vector<std::string> small_column_names = small_schema.getFieldNames();
-    std::vector<enum FIELD_TYPE> small_data_types = small_schema.getFieldTypes();
-    std::vector<std::string> large_column_names = large_schema.getFieldNames();
-    std::vector<enum FIELD_TYPE> large_data_types = large_schema.getFieldTypes();
+  std::pair<Schema, Schema> createCommonSchema(Relation* small, Relation* large,
+      std::unordered_map<std::string, bool>& selectListMap,
+      std::unordered_map<std::string, bool>& projListMap,
+      std::unordered_map<int, int>& smallToIn,
+      std::unordered_map<int, int>& largeToIn,
+      std::unordered_map<int, int>& inToOut) {
+    std::string smallRelationName = small->getRelationName();
+    std::string largeRelationName = large->getRelationName();
+    Schema smallSchema = schema_manager.getSchema(smallRelationName);
+    Schema largeSchema = schema_manager.getSchema(largeRelationName);
 
-    for(int  i = 0; i < small_column_names.size(); i++)
-      small_column_names[i] = small_relation_name + "." + small_column_names[i];
+    std::vector<std::string> smallColumnNames = smallSchema.getFieldNames();
+    std::vector<enum FIELD_TYPE> smallDataTypes = smallSchema.getFieldTypes();
+    std::vector<std::string> largeColumnNames = largeSchema.getFieldNames();
+    std::vector<enum FIELD_TYPE> largeDataTypes = largeSchema.getFieldTypes();
 
-    for(int  i = 0; i < large_column_names.size(); i++)
-      large_column_names[i] = large_relation_name + "." + large_column_names[i];
+    std::string dotString = ".";
+    for(int  i = 0; i < smallColumnNames.size(); ++i) {
+      if (smallColumnNames[i].find(dotString) == std::string::npos) {
+        smallColumnNames[i] = smallRelationName + "." + smallColumnNames[i];
+      }
+    }
 
-    std::vector<std::string> new_column_names;
-    std::vector<enum FIELD_TYPE> new_data_types;
+    for(int  i = 0; i < largeColumnNames.size(); ++i) {
+      if (largeColumnNames[i].find(dotString) == std::string::npos) {
+        largeColumnNames[i] = largeRelationName + "." + largeColumnNames[i];
+      }
+    }
+
+    std::vector<std::string> inColumnNames;
+    std::vector<enum FIELD_TYPE> inDataTypes;
+
+    std::vector<std::string> outColumnNames;
+    std::vector<enum FIELD_TYPE> outDataTypes;
 
     bool starPresent = false;
-    if (projListMap.find("*") != projListMap.end())
+    if (projListMap.find("*") != projListMap.end()) {
       starPresent = true;
+    }
 
 
-    for(int i = 0; i < small_column_names.size(); i++) {
-      if(starPresent || projListMap.find(small_column_names[i]) != projListMap.end()) {
-        new_column_names.push_back(small_column_names[i]);
-        new_data_types.push_back(small_data_types[i]);
-        small_to_new[i] = new_column_names.size() - 1;
+    for(int i = 0; i < smallColumnNames.size(); ++i) {
+      if(starPresent || selectListMap.find(smallColumnNames[i]) != selectListMap.end()) {
+        inColumnNames.push_back(smallColumnNames[i]);
+        inDataTypes.push_back(smallDataTypes[i]);
+        smallToIn[i] = inColumnNames.size() - 1;
+      }
+      if(starPresent || projListMap.find(smallColumnNames[i]) != projListMap.end()) {
+        outColumnNames.push_back(smallColumnNames[i]);
+        outDataTypes.push_back(smallDataTypes[i]);
+        inToOut[smallToIn[i]] = outColumnNames.size() - 1;
       }
     }
 
-    for(int i = 0; i < large_column_names.size(); i++) {
-      if(starPresent || projListMap.find(large_column_names[i]) != projListMap.end()) {
-        new_column_names.push_back(large_column_names[i]);
-        new_data_types.push_back(large_data_types[i]);
-        large_to_new[i] = new_column_names.size() - 1;
+    for(int i = 0; i < largeColumnNames.size(); ++i) {
+      if(starPresent || selectListMap.find(largeColumnNames[i]) != selectListMap.end()) {
+        inColumnNames.push_back(largeColumnNames[i]);
+        inDataTypes.push_back(largeDataTypes[i]);
+        largeToIn[i] = inColumnNames.size() - 1;
+      }
+      if(starPresent || projListMap.find(largeColumnNames[i]) != projListMap.end()) {
+        outColumnNames.push_back(largeColumnNames[i]);
+        outDataTypes.push_back(largeDataTypes[i]);
+        inToOut[largeToIn[i]] = outColumnNames.size() - 1;
       }
     }
 
-    Schema new_schema(new_column_names, new_data_types);
-    return new_schema;
+    Schema inSchema(inColumnNames, inDataTypes);
+    Schema outSchema(outColumnNames, outDataTypes);
+    return std::make_pair(inSchema, outSchema);
   }
 
   void printFieldNames(Schema schema) {
@@ -427,7 +454,8 @@ public:
   }
 
   Relation* crossJoinWithCondition(std::string rSmall, std::string rLarge,
-    ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
+      ParseTreeNode* postFixExpr, std::unordered_map<std::string, bool>& selectListMap,
+      std::unordered_map<std::string, bool>& projListMap, bool storeOutput) {
     Relation* small = schema_manager.getRelation(rSmall);
     Relation* large = schema_manager.getRelation(rLarge);
     int small_n = small->getNumOfBlocks();
@@ -439,14 +467,29 @@ public:
       std::swap(rSmall, rLarge);
     }
 
+    Schema inputSchema;
+    Schema outputSchema;
+
     //create new schema with projection list
-    std::unordered_map<int, int> small_to_new;
-    std::unordered_map<int, int> large_to_new;
-    Schema new_schema = createCommonSchema(small, large, projListMap, small_to_new, large_to_new);
+    std::unordered_map<int, int> smallToIn;
+    std::unordered_map<int, int> largeToIn;
+    std::unordered_map<int, int> inToOut;
+    std::pair<Schema, Schema> doubleS = createCommonSchema(small, large, selectListMap, projListMap, smallToIn, largeToIn, inToOut);
+
+    Schema inSchema = doubleS.first;
+    Schema outSchema = doubleS.second;
 
     //create new relation
-    std::string rNew = rSmall + "_" + rLarge;
-    Relation* new_relation = schema_manager.createRelation(rNew, new_schema);
+    std::string rIn = rSmall + "_" + rLarge + "_select";
+    Relation* inRelation = schema_manager.createRelation(rIn, inSchema);
+
+    std::string rOut = rSmall + "_" + rLarge;
+    Relation* outRelation = schema_manager.createRelation(rOut, outSchema);
+
+    std::cout << "Temp Schema" << endl;
+    std::cout << inSchema << std::endl;
+    std::cout << "Out Schema" << endl;
+    std::cout << outSchema << std::endl;
 
     int large_mem_block_index = mManager.getFreeBlockIndex();
     if (large_mem_block_index == -1 ) {
@@ -478,16 +521,14 @@ public:
 
     std::cout << "Small Size: " << small_n << std::endl;
     std::cout << "Large Size: " << large_n << std::endl;
-    std::cout << "Num Small in Mem: " << num_small_in_mem << std::endl;
-    std::cout << "Free In Mem: " << mManager.numFreeBlocks() << std::endl;
 
     //create condition evaluator with postfix expression and temp relation if not null postfix
     ConditionEvaluator eval;
     if(postFixExpr != nullptr)
-      eval.initialize(postFixExpr, new_relation);
+      eval.initialize(postFixExpr, inRelation);
 
     if(!storeOutput) {
-      printFieldNames(new_schema);
+      printFieldNames(outSchema);
     }
 
     int small_done = 0;
@@ -519,42 +560,53 @@ public:
                 continue;
               }
 
-              Tuple new_tuple = new_relation->createTuple();
-              for(unordered_map<int, int>::iterator it = small_to_new.begin(); it != small_to_new.end(); ++it) {
+              Tuple inTuple = inRelation->createTuple();
+              for(unordered_map<int, int>::iterator it = smallToIn.begin(); it != smallToIn.end(); ++it) {
                 int old_off = (*it).first;
                 int new_off = (*it).second;
-                FIELD_TYPE f = new_schema.getFieldType(new_off);
+                FIELD_TYPE f = inSchema.getFieldType(new_off);
                 if (f == INT) {
-                  new_tuple.setField(new_off, small_tuples[t2].getField(old_off).integer);
+                  inTuple.setField(new_off, small_tuples[t2].getField(old_off).integer);
                 } else {
-                  new_tuple.setField(new_off, *(small_tuples[t2].getField(old_off).str));
+                  inTuple.setField(new_off, *(small_tuples[t2].getField(old_off).str));
                 }
               }
 
-              for(unordered_map<int, int>::iterator it = large_to_new.begin(); it != large_to_new.end(); ++it) {
+              for(unordered_map<int, int>::iterator it = largeToIn.begin(); it != largeToIn.end(); ++it) {
                 int old_off = (*it).first;
                 int new_off = (*it).second;
-                FIELD_TYPE f = new_schema.getFieldType(new_off);
+                FIELD_TYPE f = inSchema.getFieldType(new_off);
                 if (f == INT) {
-                  new_tuple.setField(new_off, large_tuples[t1].getField(old_off).integer);
+                  inTuple.setField(new_off, large_tuples[t1].getField(old_off).integer);
                 } else {
-                  new_tuple.setField(new_off, *(large_tuples[t1].getField(old_off).str));
+                  inTuple.setField(new_off, *(large_tuples[t1].getField(old_off).str));
                 }
               }
 
               bool ans = true;
               if(postFixExpr != nullptr)
-                ans = eval.evaluate(new_tuple);
+                ans = eval.evaluate(inTuple);
 
               if (ans) {
+                Tuple outTuple = outRelation->createTuple();
+                for (auto it = inToOut.begin(); it != inToOut.end(); ++it) {
+                  int in_off = (*it).first;
+                  int out_off = (*it).second;
+                  FIELD_TYPE f = outSchema.getFieldType(out_off);
+                  if (f == INT) {
+                    outTuple.setField(out_off, inTuple.getField(in_off).integer);
+                  } else {
+                    outTuple.setField(out_off, *(inTuple.getField(in_off).str));
+                  }
+                }
                 if (storeOutput) {
-                  if (!appendTupleToMemBlock(output_mem_block_ptr, new_tuple)) {
-                    new_relation->setBlock(new_relation->getNumOfBlocks(), output_mem_block_index);
+                  if (!appendTupleToMemBlock(output_mem_block_ptr, outTuple)) {
+                    outRelation->setBlock(outRelation->getNumOfBlocks(), output_mem_block_index);
                     output_mem_block_ptr->clear();
-                    appendTupleToMemBlock(output_mem_block_ptr, new_tuple);
+                    appendTupleToMemBlock(output_mem_block_ptr, outTuple);
                   }
                 } else {
-                  std::cout << new_tuple << std::endl;
+                  std::cout << outTuple << std::endl;
                 }
               }
             }
@@ -564,7 +616,7 @@ public:
     }
 
     if (storeOutput && !(output_mem_block_ptr->isEmpty())) {
-      new_relation->setBlock(new_relation->getNumOfBlocks(), output_mem_block_index);
+      outRelation->setBlock(outRelation->getNumOfBlocks(), output_mem_block_index);
       output_mem_block_ptr->clear();
     }
 
@@ -574,8 +626,9 @@ public:
     mManager.releaseNBlocks(small_mem_block_indices);
 
     if(storeOutput) {
-      temp_relations.push_back(rNew);
-      return new_relation;
+      temp_relations.push_back(rIn);
+      temp_relations.push_back(rOut);
+      return outRelation;
     }
     return nullptr;
   }
@@ -592,12 +645,6 @@ public:
     std::vector<std::string> selectList;
     Utils::getSelectList(root, selectList);
 
-    // create projection list
-    std::unordered_map<std::string, bool> selectListMap;
-    for (int i = 0; i < selectList.size(); ++i) {
-      selectListMap[selectList[i]] = true;
-    }
-
     std::string sortColName;
     if (hasWhereCondition) {
       if (selectListIndex + 5 < root->children.size()) {
@@ -610,7 +657,12 @@ public:
     }
 
     if (hasOrderBy) {
-      selectListMap[sortColName] = true;
+      selectList.push_back(sortColName);
+    }
+
+    std::unordered_map<std::string, bool> selectListMap;
+    for (int i = 0; i < selectList.size(); ++i) {
+      selectListMap[selectList[i]] = true;
     }
 
     std::list<ParseTreeNode*> whereConditions;
@@ -753,50 +805,68 @@ public:
       }
 
       std::unordered_map<std::string, bool> curProjListMap;
+      std::unordered_map<std::string, bool> curSelectListMap;
       if (selectListMap.find("*") != selectListMap.end()) {
         curProjListMap["*"] = true;
+        curSelectListMap["*"] = true;
       } else {
         for (int j = 0; j < selectList.size(); ++j) {
           if (curColumns.find(selectList[j]) != curColumns.end()) {
             curProjListMap[selectList[j]] = true;
+            curSelectListMap[selectList[j]] = true;
           }
         }
+
         for (auto it = whereConditions.begin(); it != whereConditions.end(); ++it) {
           ParseTreeNode* curRoot = (*it);
           for (int j = 0; j < curRoot->children.size(); ++j) {
             if (curRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
               if (curColumns.find(curRoot->children[j]->value) != curColumns.end()) {
+                curSelectListMap[curRoot->children[j]->value] = true;
                 curProjListMap[curRoot->children[j]->value] = true;
               }
             }
           }
         }
+
+        ParseTreeNode* curRoot = curWhereConditionRoot;
+        for (int j = 0; j < curRoot->children.size(); ++j) {
+          if (curRoot->children[j]->type == NODE_TYPE::POSTFIX_VARIABLE) {
+            if (curColumns.find(curRoot->children[j]->value) != curColumns.end()) {
+              curSelectListMap[curRoot->children[j]->value] = true;
+            }
+          }
+        }
       }
 
-      Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curProjListMap, storeOutput);
-      std::cout << "Complete" << std::endl;
+//      std::cout << "***********SELECT LIST**************" << std::endl;
+//      for (auto it = curSelectListMap.begin(); it != curSelectListMap.end(); ++it) {
+//        std::cout << (*it).first << std::endl;
+//      }
+//
+//      std::cout << "***********Proj LIST****************" << std::endl;
+//      for (auto it = curProjListMap.begin(); it != curProjListMap.end(); ++it) {
+//        std::cout << (*it).first << std::endl;
+//      }
+//      std::cout << "************************************" << std::endl;
+
+      Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curSelectListMap, curProjListMap, storeOutput);
 
       if (storeOutput) {
         if (outputRelation == nullptr) {
           return false;
         }
         rel1 = outputRelation->getRelationName();
+        std:cout << (*outputRelation) << std::endl;
       }
+
     }
 
     if (hasDistOrSort) {
       // sort
     }
 
-    // For r1, r2 in relation_list
-    // Extract WhereCondition for these two relations
-    // if no more relations process with storeOutput = false
-    // if more relations process with storeOutput = true
-    // then r1 = newRelation
-    // r2 = nextRelation
-
-    // Drop temporary relations // create function for this
-    return false;
+    return true;
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
@@ -833,7 +903,7 @@ public:
             }
             mem_block_indices.push_back(current_block_index);
             Relation* temp_rel = sort(root->children[index]->children[0]->value, 
-              root->children[order_index + 2]->value, mem_block_indices);
+                root->children[order_index + 2]->value, mem_block_indices);
             for(int i = 0; i < mem_block_indices.size(); i++) {
               Block* block = mem->getBlock(mem_block_indices[i]);
               std::vector<Tuple> mem_tuples = block->getTuples();
@@ -846,7 +916,7 @@ public:
             // can't fit in main memory
             std::vector<int> mem_blocks;
             Relation* temp_rel = sort(root->children[index]->children[0]->value, 
-              root->children[order_index + 2]->value, mem_blocks);
+                root->children[order_index + 2]->value, mem_blocks);
             //mManager.releaseNBlocks(mem_blocks);
             std::cout << *temp_rel <<endl;
           }
@@ -856,15 +926,6 @@ public:
       return processSelectSingleTable(root, tuples, true);
     } else {
       return processSelectMultiTable(root);
-      Relation* newRelation;
-      std::string r1 = "course";
-      std::string r2 = "course2";
-
-      unordered_map<std::string, bool> m;
-      m["*"] = true;
-      newRelation = crossJoinWithCondition(r1, r2, root->children[index + 2], m, true);
-      std::cout << newRelation << std::endl;
-      // make logical query plan
     }
     return false;
   }
@@ -1133,7 +1194,7 @@ public:
       while(final_rel->getNumOfTuples() < orig_rel->getNumOfTuples()) {        
         int tuple_temp_index = 0, block_temp_index = 0;
         Tuple min_tuple = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]);
-        
+
         Schema s = mem_blocks_sublist[min_tuple_block]->getTuple(tuple_index[min_tuple_block]).getSchema();
         min_tuple_index = tuple_index[min_tuple_block];
 
@@ -1161,11 +1222,11 @@ public:
           sublist_counters[min_tuple_block]++;
           tuple_index[min_tuple_block] = 0;
           if((min_tuple_block == sublist_indices.size() - 1 && 
-            sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
-            (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1] &&
-              sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks)) {
+              sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks) ||
+              (sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < sublist_indices[min_tuple_block + 1] &&
+                  sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block] < rel_num_blocks)) {
             sublist_rel->getBlock(sublist_indices[min_tuple_block] + sublist_counters[min_tuple_block], 
-              sublist_to_mem_map[min_tuple_block]);
+                sublist_to_mem_map[min_tuple_block]);
           }
         }
 

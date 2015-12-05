@@ -59,8 +59,7 @@ public:
     if (node->type == NODE_TYPE::SELECT_STATEMENT) {
       if(node->children[1]->type == NODE_TYPE::DISTINCT_LITERAL) {
         getTableList(node->children[4], table_list);
-      }
-      else {
+      } else {
         getTableList(node->children[3], table_list);
       }
       return;
