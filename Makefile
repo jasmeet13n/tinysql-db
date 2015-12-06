@@ -36,6 +36,10 @@ main: main.o StorageManager.o DatabaseManager.o
 	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o
 	rm *.o	
 	
+all: main.o StorageManager.o DatabaseManager.o
+	$(cc) -o a.out main.o StorageManager.o DatabaseManager.o
+	rm *.o	
+
 clean:
 	rm a.out
 	rm *.o
