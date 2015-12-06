@@ -6,6 +6,7 @@ SELECT * FROM course
 INSERT INTO course (sid, grade, exam, project, homework) VALUES (3, "E", 100, 100, 100)
 SELECT * FROM course
 INSERT INTO course (sid, homework, project, exam, grade) SELECT * FROM course
+SELECT * FROM course
 DELETE FROM course WHERE grade = "E"
 SELECT * FROM course
 INSERT INTO course (sid, homework, project, exam, grade) VALUES (4, 99, 100, 100, "B")
@@ -289,4 +290,3 @@ DROP TABLE t3
 DROP TABLE t4
 DROP TABLE t5
 DROP TABLE t6
-exit
