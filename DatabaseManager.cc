@@ -191,6 +191,9 @@ public:
       //processSelectSingleTable(root->children[4]->children[0], insert_tuples);
       ParseTreeNode* select_tree_root = root->children[4]->children[0];
       std::vector<int> returnMemBlockIndices;
+      std::vector<std::string> att_list;
+      Utils::getAttributeList(root, att_list);
+      Schema s = r->getSchema();
       
       Relation *rel = processSelectMultiTable(select_tree_root, true, returnMemBlockIndices);
       if(rel == nullptr) {
@@ -198,7 +201,15 @@ public:
           Block* block = mem->getBlock(returnMemBlockIndices[i]);
           std::vector<Tuple> tuples = block->getTuples();
           for(int j = 0; j < tuples.size(); j++) {
-            insert_tuples.push_back(tuples[j]);
+            Tuple t = r->createTuple();
+            for (int k = 0; k < att_list.size(); ++k) {
+              FIELD_TYPE f = s.getFieldType(att_list[k]);
+              if(f == INT)
+                t.setField(att_list[k], tuples[j].getField(att_list[k]).integer);
+              else
+                t.setField(att_list[k], *(tuples[j].getField(att_list[k]).str));
+            }
+            insert_tuples.push_back(t);
           }
         }
       }
@@ -209,7 +220,15 @@ public:
           Block* mem_block = mem->getBlock(free_block_index);
           std::vector<Tuple> tuples = mem_block->getTuples();
           for(int j = 0; j < tuples.size(); j++) {
-            insert_tuples.push_back(tuples[j]);
+            Tuple t = r->createTuple();
+            for (int k = 0; k < att_list.size(); ++k) {
+              FIELD_TYPE f = s.getFieldType(att_list[k]);
+              if(f == INT)
+                t.setField(att_list[k], tuples[j].getField(att_list[k]).integer);
+              else
+                t.setField(att_list[k], *(tuples[j].getField(att_list[k]).str));
+            }
+            insert_tuples.push_back(t);
           }
         }
       }
