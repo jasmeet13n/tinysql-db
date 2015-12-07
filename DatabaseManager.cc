@@ -190,26 +190,9 @@ public:
     else {
       //processSelectSingleTable(root->children[4]->children[0], insert_tuples);
       ParseTreeNode* select_tree_root = root->children[4]->children[0];
-
-      int index = select_tree_root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? 4 : 3;
-      
-      std::string relation_name = select_tree_root->children[index]->children[0]->value;
-      
-      ParseTreeNode* postFixExpr = select_tree_root->children.size() > index + 1 ? select_tree_root->children[index + 2] : nullptr;
-      
       std::vector<int> returnMemBlockIndices;
-
-      std::unordered_map<std::string, bool> projListMap;
-      std::vector<std::string> selectList;
-      Utils::getSelectList(select_tree_root, selectList);
-
-      for(int i = 0; i < selectList.size(); i++) {
-        projListMap[selectList[i]] = true;
-      }
-
-      bool storeOutput = true;
       
-      Relation *rel = tableScanWithCondition(relation_name, postFixExpr, returnMemBlockIndices, projListMap, storeOutput);
+      Relation *rel = processSelectMultiTable(select_tree_root, true, returnMemBlockIndices);
       if(rel == nullptr) {
         for(int i = 0; i < returnMemBlockIndices.size(); i++) {
           Block* block = mem->getBlock(returnMemBlockIndices[i]);
@@ -779,7 +762,7 @@ public:
     return nullptr;
   }
 
-  bool processSelectMultiTable(ParseTreeNode* root) {
+  Relation* processSelectMultiTable(ParseTreeNode* root, bool globalStoreOutput, std::vector<int>& emptyMemBlocks) {
     bool hasDistinct = hasDistinct = root->children[1]->type == NODE_TYPE::DISTINCT_LITERAL ? true : false;;
     bool hasOrderBy = false;
     bool hasDistOrSort = false;
@@ -886,6 +869,8 @@ public:
     std::unordered_map<std::string, bool> curColumns;
     std::vector<std::string> fieldNames;
 
+    Relation* returnPtr = nullptr;
+
     if (hasWhereCondition && relationList.size() > 1) {
       fieldNames = relSchema[rel1].getFieldNames();
       for (int j = 0; j < fieldNames.size(); ++j) {
@@ -941,7 +926,9 @@ public:
       }
 
       bool storeOutput = true;
-      if (i == relationList.size() - 1 && !hasDistOrSort) {
+      if (globalStoreOutput == true) {
+        // Do nothing
+      } else if (i == relationList.size() - 1 && !hasDistOrSort) {
         storeOutput = false;
       }
 
@@ -980,19 +967,20 @@ public:
         }
       }
 
-      Relation* outputRelation = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curSelectListMap, curProjListMap, storeOutput);
+      returnPtr = crossJoinWithCondition(rel1, rel2, curWhereConditionRoot, curSelectListMap, curProjListMap, storeOutput);
 
       if (storeOutput) {
-        if (outputRelation == nullptr) {
-          return false;
+        if (returnPtr == nullptr) {
+          return nullptr;
         }
-        rel1 = outputRelation->getRelationName();
+        rel1 = returnPtr->getRelationName();
       }
     }
 
-    std::vector<int> emptyMemBlocks;
     bool storeOutput = false;
-    if (hasDistOrSort) {
+    if (globalStoreOutput == true) {
+      storeOutput = true;
+    } else if (hasDistOrSort) {
       storeOutput = true;
     }
     if (relationList.size() == 1) {
@@ -1005,30 +993,29 @@ public:
         }
         curProjListMap[selectList[j]] = true;
       }
-      Relation* rel = tableScanWithCondition(rel1, whereConditionRoot, emptyMemBlocks, curProjListMap, storeOutput);
-      if (rel != nullptr) {
-        rel1 = rel->getRelationName();
+      returnPtr = tableScanWithCondition(rel1, whereConditionRoot, emptyMemBlocks, curProjListMap, storeOutput);
+      if (returnPtr != nullptr) {
+        rel1 = returnPtr->getRelationName();
       }
     }
 
     if (hasDistOrSort) {
       if (hasDistinct && hasOrderBy) {
-        Relation* rel;
-        rel = removeDuplicates(rel1, sortColName, emptyMemBlocks, true);
+        returnPtr = removeDuplicates(rel1, sortColName, emptyMemBlocks, !globalStoreOutput);
       } else if (hasOrderBy) {
-        Relation* rel;
-        rel = ourSort(rel1, sortColName, emptyMemBlocks, true);
+        returnPtr = ourSort(rel1, sortColName, emptyMemBlocks, !globalStoreOutput);
       } else if (hasDistinct) {
-        Relation* rel;
-        rel = removeDuplicates(rel1, schema_manager.getRelation(rel1)->getSchema().getFieldName(0), emptyMemBlocks, true);
+        returnPtr = removeDuplicates(rel1, schema_manager.getRelation(rel1)->getSchema().getFieldName(0), emptyMemBlocks, !globalStoreOutput);
       }
     }
 
-    return true;
+    return returnPtr;
   }
 
   bool processSelectStatement(ParseTreeNode* root) {
-    return processSelectMultiTable(root);
+    std::vector<int> dummyBlocks;
+    Relation* rel = processSelectMultiTable(root, false, dummyBlocks);
+    return true;
   }
 
   //assuming tuples have same schema
