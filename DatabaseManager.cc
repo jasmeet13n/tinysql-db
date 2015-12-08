@@ -818,6 +818,16 @@ public:
     // Create a vector of relation list
     std::vector<std::string> relationList;
     Utils::getTableList(root, relationList);
+    std::vector<std::pair<int, std::string> > relPair;
+
+    for(int i = 0; i < relationList.size(); i++) {
+      relPair.push_back(std::make_pair(schema_manager.getRelation(relationList[i])->getNumOfTuples(), std::string(relationList[i])));
+    }
+    std::sort(relPair.begin(), relPair.end());
+
+    for(int i = 0; i < relationList.size(); i++) {
+      relationList[i] = relPair[i].second;
+    }
 
     bool foundOrCondition = false;
     if (hasWhereCondition && relationList.size() > 1) {
