@@ -248,12 +248,13 @@ public:
     std::string tableName = root->children[2]->value;
     Relation* rel = schema_manager.getRelation(tableName);
 
-    ConditionEvaluator eval;
-    bool hasToCheckWhere = false;
-    if (root->children.size() > 3) {
-      hasToCheckWhere = true;
-      eval.initialize(root->children[4], rel);
+    if (root->children.size() == 3) {
+      rel->deleteBlocks(0);
+      return true;
     }
+
+    ConditionEvaluator eval;
+    eval.initialize(root->children[4], rel);
 
     int inMemBlockIndex = mManager.getFreeBlockIndex();
     int outMemBlockIndex = mManager.getFreeBlockIndex();
@@ -270,9 +271,7 @@ public:
       std::vector<Tuple> tuples = inMemBlockPtr->getTuples();
       for (int j = 0; j < tuples.size(); ++j) {
         bool ans = true;
-        if (hasToCheckWhere) {
-          ans = eval.evaluate(tuples[j]);
-        }
+        ans = eval.evaluate(tuples[j]);
 
         if (!ans) {
           if(!appendTupleToMemBlock(outMemBlockPtr, tuples[j])) {
