@@ -560,12 +560,12 @@ public:
             if (curMemBlockIndex == -1) {
               for (int k = 0; k < curMemBlockIndices.size(); ++k) {
                 if (storeOutput) {
-                  // output this block to newRelation
+                  outRel->setBlock(outRel->getNumOfBlocks(), curMemBlockIndices[k]);
                 } else {
                   Block* curBlock = mem->getBlock(curMemBlockIndices[k]);
                   std::vector<Tuple> tuplesInThisBlock = curBlock->getTuples();
                   for (int l = 0; l < tuplesInThisBlock.size(); ++l) {
-                    // print the tuple
+                    printAndLog(tuplesInThisBlock[l]);
                   }
                 }
               }
@@ -597,7 +597,7 @@ public:
         return nullptr;
       } else {
         mManager.releaseNBlocks(curMemBlockIndices);
-        return rel;
+        return outRel;
       }
     } else {
       mManager.releaseNBlocks(curMemBlockIndices);
