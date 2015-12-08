@@ -2,7 +2,7 @@
 ** Introduction        **
 *************************
 Project 2 for CSCE 608 Database Systems, Fall 2015.
-
+Github Repository located at: https://github.com/jasmeet13n/tinysql-db
 
 *************************
 ** Authors             **
