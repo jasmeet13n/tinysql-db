@@ -28,7 +28,7 @@ Q>INSERT INTO course (sid, grade, exam, project, homework) VALUES (3, "E", 100, 
 Disk I/O: 2
 Execution Time: 149.260000 ms
 ********************************************
-Q>SELECT * FROM course
+Q>SELECT DISTINCT * FROM course
 sid	homework	project	exam	grade	
 1	99	100	100	A	
 2	0	100	100	E	
@@ -557,11 +557,16 @@ sid	homework	project	exam	grade
 15	100	99	100	E	
 16	0	0	0	E	
 17	100	100	100	A	
-Disk I/O: 276
-Execution Time: 20597.880000 ms
+Disk I/O: 240
+Execution Time: 17911.200000 ms
 ********************************************
 Q>SELECT * FROM course ORDER BY exam
 sid	homework	project	exam	grade	
+16	0	0	0	E	
+16	0	0	0	E	
+16	0	0	0	E	
+16	0	0	0	E	
+16	0	0	0	E	
 16	0	0	0	E	
 16	0	0	0	E	
 16	0	0	0	E	
@@ -613,11 +618,12 @@ sid	homework	project	exam	grade
 4	100	100	97	D	
 3	100	100	98	C	
 2	100	100	99	B	
+17	100	100	100	A	
 1	99	100	100	A	
 15	100	99	100	E	
 17	100	100	100	A	
-Disk I/O: 276
-Execution Time: 20597.880000 ms
+Disk I/O: 240
+Execution Time: 17911.200000 ms
 ********************************************
 Q>SELECT * FROM course WHERE exam = 100
 sid	homework	project	exam	grade	
