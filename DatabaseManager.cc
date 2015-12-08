@@ -1083,10 +1083,10 @@ public:
     for(int i = 0; i < column_names.size(); i++) {
       enum FIELD_TYPE f = s.getFieldType(column_names[i]);
       if(f == INT) {
-        result += std::to_string(tuple.getField(column_names[i]).integer);
+        result += std::to_string(tuple.getField(column_names[i]).integer)+"_";
       }
       else {
-        result += *(tuple.getField(column_names[i]).str);
+        result += *(tuple.getField(column_names[i]).str)+"_";
       }
     }
     return result;
